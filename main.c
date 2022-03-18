@@ -146,32 +146,32 @@ void motorControl (int cmd) {
 	int rightFrequency;
 	switch(cmd) {
 		case forward:
-			leftFrequency = 100;
-			rightFrequency = 100;
+			leftFrequency = 10;
+			rightFrequency = 10;
 			TPM1_C0V = (375000 / leftFrequency) / 2;
 			TPM1_C1V = (375000 / rightFrequency) / 2;
 			TPM2_C0V = 0;
 			TPM2_C1V = 0;
 			break;
 		case left: 
-			leftFrequency = 50;
-			rightFrequency = 100;
+			leftFrequency = 10;
+			rightFrequency = 5;
 			TPM1_C0V = (375000 / leftFrequency) / 2;
 			TPM1_C1V = (375000 / rightFrequency) / 2;
 			TPM2_C0V = 0;
 			TPM2_C1V = 0;
 			break;
 		case right: 
-			leftFrequency = 100;
-			rightFrequency = 50;
+			leftFrequency = 5;
+			rightFrequency = 10;
 			TPM1_C0V = (375000 / leftFrequency) / 2;
 			TPM1_C1V = (375000 / rightFrequency) / 2;
 			TPM2_C0V = 0;
 			TPM2_C1V = 0;
 			break;
 		case reverse:
-			leftFrequency = 100;
-			rightFrequency = 50;
+			leftFrequency = 10;
+			rightFrequency = 10;
 			TPM1_C0V = 0;
 			TPM1_C1V = 0;
 			TPM2_C0V = (375000 / leftFrequency) / 2;
