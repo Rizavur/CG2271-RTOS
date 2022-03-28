@@ -18,8 +18,8 @@
 #define MSG_COUNT 1
 
 // Port C Pins
-#define GREEN_LED_1 7
-#define GREEN_LED_2 0
+#define GREEN_LED_1 1
+#define GREEN_LED_2 2
 #define GREEN_LED_3 3
 #define GREEN_LED_4 4
 #define GREEN_LED_5 5
@@ -29,6 +29,97 @@
 #define GREEN_LED_9 12
 #define GREEN_LED_10 13
 #define RED_LED 16
+
+#define NOTE_B0  31
+#define NOTE_C1  33
+#define NOTE_CS1 35
+#define NOTE_D1  37
+#define NOTE_DS1 39
+#define NOTE_E1  41
+#define NOTE_F1  44
+#define NOTE_FS1 46
+#define NOTE_G1  49
+#define NOTE_GS1 52
+#define NOTE_A1  55
+#define NOTE_AS1 58
+#define NOTE_B1  62
+#define NOTE_C2  65
+#define NOTE_CS2 69
+#define NOTE_D2  73
+#define NOTE_DS2 78
+#define NOTE_E2  82
+#define NOTE_F2  87
+#define NOTE_FS2 93
+#define NOTE_G2  98
+#define NOTE_GS2 104
+#define NOTE_A2  110
+#define NOTE_AS2 117
+#define NOTE_B2  123
+#define NOTE_C3  131
+#define NOTE_CS3 139
+#define NOTE_D3  147
+#define NOTE_DS3 156
+#define NOTE_E3  165
+#define NOTE_F3  175
+#define NOTE_FS3 185
+#define NOTE_G3  196
+#define NOTE_GS3 208
+#define NOTE_A3  220
+#define NOTE_AS3 233
+#define NOTE_B3  247
+#define NOTE_C4  262
+#define NOTE_CS4 277
+#define NOTE_D4  294
+#define NOTE_DS4 311
+#define NOTE_E4  330
+#define NOTE_F4  349
+#define NOTE_FS4 370
+#define NOTE_G4  392
+#define NOTE_GS4 415
+#define NOTE_A4  440
+#define NOTE_AS4 466
+#define NOTE_B4  494
+#define NOTE_C5  523
+#define NOTE_CS5 554
+#define NOTE_D5  587
+#define NOTE_DS5 622
+#define NOTE_E5  659
+#define NOTE_F5  698
+#define NOTE_FS5 740
+#define NOTE_G5  784
+#define NOTE_GS5 831
+#define NOTE_A5  880
+#define NOTE_AS5 932
+#define NOTE_B5  988
+#define NOTE_C6  1047
+#define NOTE_CS6 1109
+#define NOTE_D6  1175
+#define NOTE_DS6 1245
+#define NOTE_E6  1319
+#define NOTE_F6  1397
+#define NOTE_FS6 1480
+#define NOTE_G6  1568
+#define NOTE_GS6 1661
+#define NOTE_A6  1760
+#define NOTE_AS6 1865
+#define NOTE_B6  1976
+#define NOTE_C7  2093
+#define NOTE_CS7 2217
+#define NOTE_D7  2349
+#define NOTE_DS7 2489
+#define NOTE_E7  2637
+#define NOTE_F7  2794
+#define NOTE_FS7 2960
+#define NOTE_G7  3136
+#define NOTE_GS7 3322
+#define NOTE_A7  3520
+#define NOTE_AS7 3729
+#define NOTE_B7  3951
+#define NOTE_C8  4186
+#define NOTE_CS8 4435
+#define NOTE_D8  4699
+#define NOTE_DS8 4978
+#define REST      0
 
 osThreadId_t forwardId, leftId, rightId, reverseId, stopId, controlId, greenLedId, redLedId, playMusicId;
 osMessageQueueId_t forwardMsg, leftMsg, rightMsg, reverseMsg, stopMsg, greenLedMsg, redLedMsg, playMusicMsg;
@@ -50,8 +141,6 @@ enum commands {
 dataPacket receivedData;
 uint8_t robotMovingStatus = 0; // 0 means stopped and 1 means moving
 uint8_t playFinalMusic = 0; // 0 means play normal music and 1 means play final music
-uint8_t greenLedCounter = 0;
-int musicalNotesFrequencies[7][2] = {{'C', 262}, {'D', 294}, {'E', 330}, {'F', 349}, {'G', 392}, {'A', 440}, {'B', 494}};
 
 void initGPIO(void) {
 	// Enable Clock to PORTB 
@@ -112,13 +201,14 @@ void initGPIO(void) {
 
 void initLED(void) {
 	SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK;
+	SIM->SCGC5 |= SIM_SCGC5_PORTA_MASK;
 
 	// Configure MUX settings for LED pins
-	PORTC->PCR[GREEN_LED_1] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
-	PORTC->PCR[GREEN_LED_1] |= PORT_PCR_MUX(1); // Setting Alernative 1
+	PORTA->PCR[GREEN_LED_1] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTA->PCR[GREEN_LED_1] |= PORT_PCR_MUX(1); // Setting Alernative 1
 
-	PORTC->PCR[GREEN_LED_2] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
-	PORTC->PCR[GREEN_LED_2] |= PORT_PCR_MUX(1); // Setting Alernative 1
+	PORTA->PCR[GREEN_LED_2] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTA->PCR[GREEN_LED_2] |= PORT_PCR_MUX(1); // Setting Alernative 1
 	
 	PORTC->PCR[GREEN_LED_3] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
 	PORTC->PCR[GREEN_LED_3] |= PORT_PCR_MUX(1); // Setting Alernative 1
@@ -148,15 +238,16 @@ void initLED(void) {
 	PORTC->PCR[RED_LED] |= PORT_PCR_MUX(1); // Setting Alernative 1
 	
 	// Set Data Direction Registers for Port C (Set them as outputs)
-	PTC->PDDR |= (MASK(GREEN_LED_1) | MASK(GREEN_LED_2) | MASK(GREEN_LED_3) | MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10) | MASK(RED_LED));
+	PTA->PDDR |= (MASK(GREEN_LED_1) | MASK(GREEN_LED_2) );
+	PTC->PDDR |= (MASK(GREEN_LED_3) | MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10) | MASK(RED_LED));
 }
 
 void initMusicPin(void) {
 	SIM->SCGC5 |= SIM_SCGC5_PORTD_MASK;
 	
 	// Configure MUX settings for music pin
-	PORTC->PCR[MUSIC_PIN] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
-	PORTC->PCR[MUSIC_PIN] |= PORT_PCR_MUX(4); // Setting Alernative 4 -> TPM0_CH0
+	PORTD->PCR[MUSIC_PIN] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTD->PCR[MUSIC_PIN] |= PORT_PCR_MUX(4); // Setting Alernative 4 -> TPM0_CH0
 	
 	// Enable Clock to TPM0
 	SIM->SCGC6 |= SIM_SCGC6_TPM0_MASK;
@@ -234,90 +325,64 @@ void UART2_IRQHandler(void) {
 
 void offAllGreenLeds(void) {
 	// Turn off all Green LEDs
-	PTC->PCOR = (MASK(GREEN_LED_1) | MASK(GREEN_LED_2) | MASK(GREEN_LED_3) | MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10));
+	PTA->PCOR = (MASK(GREEN_LED_1) | MASK(GREEN_LED_2));
+	PTC->PCOR = (MASK(GREEN_LED_3) | MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10));
 }
 
 void onAllGreenLeds(void) {
   // Turn on all Green LEDs
-	PTC->PSOR = (MASK(GREEN_LED_1) | MASK(GREEN_LED_2) | MASK(GREEN_LED_3) | MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10));
-}
-
-void incrementGreenLedCounter(void) {
-	greenLedCounter++;
-	if (greenLedCounter > 10) {
-		greenLedCounter = 1;
-	}
+	PTA->PSOR = (MASK(GREEN_LED_1) | MASK(GREEN_LED_2));
+	PTC->PSOR = (MASK(GREEN_LED_3) | MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10));
 }
 
 void greenLedControl() {
-	if (!robotMovingStatus) {
-		// Stationery
-		onAllGreenLeds();
-	} else {
-		//Moving
-		switch(greenLedCounter) {
-			case 1:
-				offAllGreenLeds();
-				PTC->PSOR = MASK(GREEN_LED_1);
-				incrementGreenLedCounter();	
-				osDelay(1000);
-				break;
-			case 2:
-				offAllGreenLeds();
-				PTC->PSOR = MASK(GREEN_LED_2);
-				incrementGreenLedCounter();	
-				osDelay(1000);
-				break;
-			case 3:
-				offAllGreenLeds();
-				PTC->PSOR = MASK(GREEN_LED_3);
-				incrementGreenLedCounter();	
-				osDelay(1000);
-				break;
-			case 4:
-				offAllGreenLeds();
-				PTC->PSOR = MASK(GREEN_LED_4);
-				incrementGreenLedCounter();	
-				osDelay(1000);
-				break;
-			case 5:
-				offAllGreenLeds();
-				PTC->PSOR = MASK(GREEN_LED_5);
-				incrementGreenLedCounter();	
-				osDelay(1000);
-				break;
-			case 6:
-				offAllGreenLeds();
-				PTC->PSOR = MASK(GREEN_LED_6);
-				incrementGreenLedCounter();	
-				osDelay(1000);
-				break;
-			case 7:
-				offAllGreenLeds();
-				PTC->PSOR = MASK(GREEN_LED_7);
-				incrementGreenLedCounter();	
-				osDelay(1000);
-				break;
-			case 8:
-				offAllGreenLeds();
-				PTC->PSOR = MASK(GREEN_LED_8);
-				incrementGreenLedCounter();	
-				osDelay(1000);
-				break;
-			case 9:
-				offAllGreenLeds();
-				PTC->PSOR = MASK(GREEN_LED_9);
-				incrementGreenLedCounter();	
-				osDelay(1000);
-				break;
-			case 10:
-				offAllGreenLeds();
-				PTC->PSOR = MASK(GREEN_LED_10);
-				incrementGreenLedCounter();	
-				osDelay(1000);
-				break;
-		}
-	}
+  if (!robotMovingStatus) {
+    // Stationery
+    onAllGreenLeds();
+  } else {
+    //Moving
+		offAllGreenLeds();
+		PTA->PSOR = MASK(GREEN_LED_1);
+		osDelay(100);
+		
+		offAllGreenLeds();
+		PTA->PSOR = MASK(GREEN_LED_2);
+		osDelay(100);
+		
+		offAllGreenLeds();
+		PTC->PSOR = MASK(GREEN_LED_3);
+		osDelay(100);
+		
+		offAllGreenLeds();
+		PTC->PSOR = MASK(GREEN_LED_4);
+		osDelay(100);
+		
+		offAllGreenLeds();
+		PTC->PSOR = MASK(GREEN_LED_5);
+		osDelay(100);
+		
+		offAllGreenLeds();
+		PTC->PSOR = MASK(GREEN_LED_6);
+		osDelay(100);
+		
+		offAllGreenLeds();
+		PTC->PSOR = MASK(GREEN_LED_7);  
+		osDelay(100);
+		
+		offAllGreenLeds();
+		PTC->PSOR = MASK(GREEN_LED_8); 
+		osDelay(100);
+		
+		offAllGreenLeds();
+		PTC->PSOR = MASK(GREEN_LED_9); 
+		osDelay(100);
+		
+		offAllGreenLeds();
+		PTC->PSOR = MASK(GREEN_LED_10);
+		osDelay(100);
+
+		offAllGreenLeds();
+    }
 }
 
 void redLedControl(void) {
@@ -381,15 +446,81 @@ void motorControl (int cmd) {
 	}
 }
 
+void finalMusic() {
+	/*
+	NOTE_E5, 8, NOTE_D5, 8, NOTE_FS4, 4, NOTE_GS4, 4, 
+	NOTE_CS5, 8, NOTE_B4, 8, NOTE_D4, 4, NOTE_E4, 4, 
+	NOTE_B4, 8, NOTE_A4, 8, NOTE_CS4, 4, NOTE_E4, 4,
+	NOTE_A4, 2
+	*/
+	TPM0->MOD = 375000 / NOTE_E5;
+	TPM0_C0V = (375000 / NOTE_E5) / 4;
+	osDelay(800);
+	
+	TPM0->MOD = 375000 / NOTE_D5;
+	TPM0_C0V = (375000 / NOTE_D5) / 4;
+	osDelay(800);
+	
+	TPM0->MOD = 375000 / NOTE_FS4;
+	TPM0_C0V = (375000 / NOTE_FS4) / 4;
+	osDelay(400);
+	
+	TPM0->MOD = 375000 / NOTE_E5;
+	TPM0_C0V = (375000 / NOTE_E5) / 4;
+	osDelay(800);
+		
+	TPM0->MOD = 375000 / NOTE_GS4;
+	TPM0_C0V = (375000 / NOTE_GS4) / 4;
+	osDelay(400);
+		
+	TPM0->MOD = 375000 / NOTE_CS5;
+	TPM0_C0V = (375000 / NOTE_CS5) / 4;
+	osDelay(800);
+		
+	TPM0->MOD = 375000 / NOTE_B4;
+	TPM0_C0V = (375000 / NOTE_B4) / 4;
+	osDelay(800);
+		
+	TPM0->MOD = 375000 / NOTE_D4;
+	TPM0_C0V = (375000 / NOTE_D4) / 4;
+	osDelay(400);
+	
+	TPM0->MOD = 375000 / NOTE_E4;
+	TPM0_C0V = (375000 / NOTE_E4) / 4;
+	osDelay(400);
+		
+	TPM0->MOD = 375000 / NOTE_B4;
+	TPM0_C0V = (375000 / NOTE_B4) / 4;
+	osDelay(800);
+		
+	TPM0->MOD = 375000 / NOTE_A4;
+	TPM0_C0V = (375000 / NOTE_A4) / 4;
+	osDelay(800);
+		
+	TPM0->MOD = 375000 / NOTE_CS4;
+	TPM0_C0V = (375000 / NOTE_CS4) / 4;
+	osDelay(400);
+		
+	TPM0->MOD = 375000 / NOTE_E4;
+	TPM0_C0V = (375000 / NOTE_E4) / 4;
+	osDelay(400);
+		
+	TPM0->MOD = 375000 / NOTE_A4;
+	TPM0_C0V = (375000 / NOTE_A4) / 4;
+	osDelay(200);
+}
+
+void playNormalMusic() {
+
+}
+
 void musicControl(void) {
 	if(playFinalMusic) { // Final Music
 		// Note C
-		TPM0->MOD = 375000 / musicalNotesFrequencies[0][1];
-		TPM0_C0V = (375000 / musicalNotesFrequencies[0][1]) / 2;
+		finalMusic();
 	} else { // Normal Music
 		// Note B
-		TPM0->MOD = 375000 / musicalNotesFrequencies[6][1];
-		TPM0_C0V = (375000 / musicalNotesFrequencies[6][1]) / 2;
+		playNormalMusic();
 	}
 }
 
