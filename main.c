@@ -16,8 +16,22 @@
 #define RIGHT_CONTROL_2 3 // Port B Pin 3
 #define MSG_COUNT 1
 
-osThreadId_t forwardId, leftId, rightId, reverseId, stopId, controlId;
-osMessageQueueId_t forwardMsg, leftMsg, rightMsg, reverseMsg, stopMsg;
+// Port C Pins
+#define GREEN_LED_1 7
+#define GREEN_LED_2 0
+#define GREEN_LED_3 3
+#define GREEN_LED_4 4
+#define GREEN_LED_5 5
+#define GREEN_LED_6 6
+#define GREEN_LED_7 10
+#define GREEN_LED_8 11
+#define GREEN_LED_9 12
+#define GREEN_LED_10 13
+#define RED_LED 16
+
+
+osThreadId_t forwardId, leftId, rightId, reverseId, stopId, controlId, greenLedId, redLedId;
+osMessageQueueId_t forwardMsg, leftMsg, rightMsg, reverseMsg, stopMsg, greenLedMsg, redLedMsg;
 
 typedef struct {
 	uint8_t cmd;
@@ -32,6 +46,8 @@ enum commands {
 };
 
 dataPacket receivedData;
+uint8_t robotMovingStatus = 0; // 0 means stopped and 1 means moving
+uint8_t greenLedCounter = 0;
 
 void initGPIO(void) {
 	// Enable Clock to PORTB 
@@ -90,6 +106,47 @@ void initGPIO(void) {
 	TPM2_C1SC |= (TPM_CnSC_ELSB(1) | (TPM_CnSC_MSB(1)));
 }
 
+void initLED(void) {
+	SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK;
+
+	// Configure MUX settings for LED pins
+	PORTC->PCR[GREEN_LED_1] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTC->PCR[GREEN_LED_1] |= PORT_PCR_MUX(1); // Setting Alernative 1
+
+	PORTC->PCR[GREEN_LED_2] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTC->PCR[GREEN_LED_2] |= PORT_PCR_MUX(1); // Setting Alernative 1
+	
+	PORTC->PCR[GREEN_LED_3] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTC->PCR[GREEN_LED_3] |= PORT_PCR_MUX(1); // Setting Alernative 1
+
+	PORTC->PCR[GREEN_LED_4] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTC->PCR[GREEN_LED_4] |= PORT_PCR_MUX(1); // Setting Alernative 1
+	
+	PORTC->PCR[GREEN_LED_5] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTC->PCR[GREEN_LED_5] |= PORT_PCR_MUX(1); // Setting Alernative 1
+	
+	PORTC->PCR[GREEN_LED_6] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTC->PCR[GREEN_LED_6] |= PORT_PCR_MUX(1); // Setting Alernative 1
+	
+	PORTC->PCR[GREEN_LED_7] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTC->PCR[GREEN_LED_7] |= PORT_PCR_MUX(1); // Setting Alernative 1
+	
+	PORTC->PCR[GREEN_LED_8] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTC->PCR[GREEN_LED_8] |= PORT_PCR_MUX(1); // Setting Alernative 1
+	
+	PORTC->PCR[GREEN_LED_9] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTC->PCR[GREEN_LED_9] |= PORT_PCR_MUX(1); // Setting Alernative 1
+	
+	PORTC->PCR[GREEN_LED_10] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTC->PCR[GREEN_LED_10] |= PORT_PCR_MUX(1); // Setting Alernative 1
+	
+	PORTC->PCR[RED_LED] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTC->PCR[RED_LED] |= PORT_PCR_MUX(1); // Setting Alernative 1
+	
+	// Set Data Direction Registers for Port C (Set them as outputs)
+	PTC->PDDR |= (MASK(GREEN_LED_1) | MASK(GREEN_LED_2) | MASK(GREEN_LED_3) | MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10) | MASK(RED_LED));
+}
+
 void initUART2(uint32_t baud_rate) {
 	uint32_t divisor, bus_clock;
 
@@ -141,37 +198,141 @@ void UART2_IRQHandler(void) {
 	}
 }
 
+void offAllGreenLeds(void) {
+	// Turn off all Green LEDs
+	PTC->PCOR = (MASK(GREEN_LED_1) | MASK(GREEN_LED_2) | MASK(GREEN_LED_3) | MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10));
+}
+
+void onAllGreenLeds(void) {
+  // Turn on all Green LEDs
+	PTC->PSOR = (MASK(GREEN_LED_1) | MASK(GREEN_LED_2) | MASK(GREEN_LED_3) | MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10));
+}
+
+void incrementGreenLedCounter(void) {
+	greenLedCounter++;
+	if (greenLedCounter > 10) {
+		greenLedCounter = 1;
+	}
+}
+
+void greenLedControl() {
+	if (!robotMovingStatus) {
+		// Stationery
+		onAllGreenLeds();
+	} else {
+		//Moving
+		switch(greenLedCounter) {
+			case 1:
+				offAllGreenLeds();
+				PTC->PSOR = MASK(GREEN_LED_1);
+				incrementGreenLedCounter();	
+				osDelay(1000);
+				break;
+			case 2:
+				offAllGreenLeds();
+				PTC->PSOR = MASK(GREEN_LED_2);
+				incrementGreenLedCounter();	
+				osDelay(1000);
+				break;
+			case 3:
+				offAllGreenLeds();
+				PTC->PSOR = MASK(GREEN_LED_3);
+				incrementGreenLedCounter();	
+				osDelay(1000);
+				break;
+			case 4:
+				offAllGreenLeds();
+				PTC->PSOR = MASK(GREEN_LED_4);
+				incrementGreenLedCounter();	
+				osDelay(1000);
+				break;
+			case 5:
+				offAllGreenLeds();
+				PTC->PSOR = MASK(GREEN_LED_5);
+				incrementGreenLedCounter();	
+				osDelay(1000);
+				break;
+			case 6:
+				offAllGreenLeds();
+				PTC->PSOR = MASK(GREEN_LED_6);
+				incrementGreenLedCounter();	
+				osDelay(1000);
+				break;
+			case 7:
+				offAllGreenLeds();
+				PTC->PSOR = MASK(GREEN_LED_7);
+				incrementGreenLedCounter();	
+				osDelay(1000);
+				break;
+			case 8:
+				offAllGreenLeds();
+				PTC->PSOR = MASK(GREEN_LED_8);
+				incrementGreenLedCounter();	
+				osDelay(1000);
+				break;
+			case 9:
+				offAllGreenLeds();
+				PTC->PSOR = MASK(GREEN_LED_9);
+				incrementGreenLedCounter();	
+				osDelay(1000);
+				break;
+			case 10:
+				offAllGreenLeds();
+				PTC->PSOR = MASK(GREEN_LED_10);
+				incrementGreenLedCounter();	
+				osDelay(1000);
+				break;
+		}
+	}
+}
+
+void redLedControl(void) {
+	if (!robotMovingStatus) {
+		// Stationery
+		PTC->PSOR = MASK(RED_LED);
+		osDelay(250);
+		PTC->PCOR = MASK(RED_LED);
+		osDelay(250);
+	} else {
+		// Moving
+		PTC->PSOR = MASK(RED_LED);
+		osDelay(500);
+		PTC->PCOR = MASK(RED_LED);
+		osDelay(500);
+	}
+}
+
 void motorControl (int cmd) {
 	int leftFrequency;
 	int rightFrequency;
 	switch(cmd) {
 		case forward:
-			leftFrequency = 10;
-			rightFrequency = 10;
-			TPM1_C0V = (375000 / leftFrequency) / 2;
-			TPM1_C1V = (375000 / rightFrequency) / 2;
-			TPM2_C0V = 0;
-			TPM2_C1V = 0;
-			break;
-		case left: 
-			leftFrequency = 10;
+			leftFrequency = 5;
 			rightFrequency = 5;
 			TPM1_C0V = (375000 / leftFrequency) / 2;
 			TPM1_C1V = (375000 / rightFrequency) / 2;
 			TPM2_C0V = 0;
 			TPM2_C1V = 0;
 			break;
-		case right: 
+		case left:
+			leftFrequency = 20;
+			rightFrequency = 5;
+			TPM1_C0V = (375000 / leftFrequency) / 2;
+			TPM1_C1V = (375000 / rightFrequency) / 2;
+			TPM2_C0V = 0;
+			TPM2_C1V = 0;
+			break;
+		case right:		
 			leftFrequency = 5;
-			rightFrequency = 10;
+			rightFrequency = 20;
 			TPM1_C0V = (375000 / leftFrequency) / 2;
 			TPM1_C1V = (375000 / rightFrequency) / 2;
 			TPM2_C0V = 0;
 			TPM2_C1V = 0;
 			break;
 		case reverse:
-			leftFrequency = 10;
-			rightFrequency = 10;
+			leftFrequency = 5;
+			rightFrequency = 5;
 			TPM1_C0V = 0;
 			TPM1_C1V = 0;
 			TPM2_C0V = (375000 / leftFrequency) / 2;
@@ -192,16 +353,23 @@ void motorControl (int cmd) {
 void control_thread(void *argument) {
   for (;;) {
 		if(receivedData.cmd == forward) {
+			robotMovingStatus = 1;
 			osMessageQueuePut(forwardMsg, &receivedData, NULL, 0);
 		} else if (receivedData.cmd == left) {
+			robotMovingStatus = 1;
 			osMessageQueuePut(leftMsg, &receivedData, NULL, 0);
 		} else if (receivedData.cmd == right) {
+			robotMovingStatus = 1;
 			osMessageQueuePut(rightMsg, &receivedData, NULL, 0);
 		} else if (receivedData.cmd == reverse) {
+			robotMovingStatus = 1;
 			osMessageQueuePut(reverseMsg, &receivedData, NULL, 0);
 		} else if (receivedData.cmd == stop) {
+			robotMovingStatus = 0;
 			osMessageQueuePut(stopMsg, &receivedData, NULL, 0);
 		}
+		osMessageQueuePut(greenLedMsg, NULL, NULL, 0);
+		osMessageQueuePut(redLedMsg, NULL, NULL, 0);
   }
 }
 
@@ -260,28 +428,43 @@ void stop_thread(void *argument) {
   }
 }
 
+void green_led_thread(void *argument) {
+  for (;;) {
+		greenLedControl();
+  }
+}
+
+void red_led_thread(void *argument) {
+  for (;;) {
+		redLedControl();
+  }
+}
+
 int main(void) {
-  // System Initialization
-  SystemCoreClockUpdate();
+	// System Initialization
+	SystemCoreClockUpdate();
 	initUART2(BAUD_RATE);
 	initGPIO();
-  // ...
+	initLED();
 
-  osKernelInitialize();  // Initialize CMSIS-RTOS
-  forwardId = osThreadNew(forward_thread, NULL, NULL);
-  leftId = osThreadNew(left_thread, NULL, NULL);
-  rightId = osThreadNew(right_thread, NULL, NULL);
-  reverseId = osThreadNew(reverse_thread, NULL, NULL);
+	osKernelInitialize();  // Initialize CMSIS-RTOS
+	forwardId = osThreadNew(forward_thread, NULL, NULL);
+	leftId = osThreadNew(left_thread, NULL, NULL);
+	rightId = osThreadNew(right_thread, NULL, NULL);
+	reverseId = osThreadNew(reverse_thread, NULL, NULL);
 	stopId = osThreadNew(stop_thread, NULL, NULL);
-  controlId = osThreadNew(control_thread, NULL, NULL);
+	controlId = osThreadNew(control_thread, NULL, NULL);
+	greenLedId = osThreadNew(green_led_thread, NULL, NULL);
+	redLedId = osThreadNew(red_led_thread, NULL, NULL);
 	
 	forwardMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
 	leftMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
 	rightMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
 	reverseMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
 	stopMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
+	greenLedMsg = osMessageQueueNew(MSG_COUNT, sizeof(uint8_t), NULL);
+	redLedMsg = osMessageQueueNew(MSG_COUNT, sizeof(uint8_t), NULL);
 	
-  osKernelStart();  // Start thread execution
-  for (;;) {
-  }
+	osKernelStart();  // Start thread execution
+	for (;;) {}
 }
