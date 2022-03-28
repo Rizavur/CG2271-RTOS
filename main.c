@@ -10,10 +10,11 @@
 #define BAUD_RATE 9600
 #define UART_RX_PORTE23 23
 #define UART2_INT_PRIO 128
-#define LEFT_CONTROL_1 0 // Port B Pin 0
-#define RIGHT_CONTROL_1 1 // Port B Pin 1
-#define LEFT_CONTROL_2 2 // Port B Pin 2
-#define RIGHT_CONTROL_2 3 // Port B Pin 3
+#define LEFT_CONTROL_1 0 // Port B Pin 0 -> TPM1_CH0
+#define RIGHT_CONTROL_1 1 // Port B Pin 1 -> TPM1_CH1
+#define LEFT_CONTROL_2 2 // Port B Pin 2 -> TPM2_CH0
+#define RIGHT_CONTROL_2 3 // Port B Pin 3 -> TPM2_CH1
+#define MUSIC_PIN 0 // Port D Pin 0 -> TPM0_CH0
 #define MSG_COUNT 1
 
 // Port C Pins
@@ -29,9 +30,8 @@
 #define GREEN_LED_10 13
 #define RED_LED 16
 
-
-osThreadId_t forwardId, leftId, rightId, reverseId, stopId, controlId, greenLedId, redLedId;
-osMessageQueueId_t forwardMsg, leftMsg, rightMsg, reverseMsg, stopMsg, greenLedMsg, redLedMsg;
+osThreadId_t forwardId, leftId, rightId, reverseId, stopId, controlId, greenLedId, redLedId, playMusicId;
+osMessageQueueId_t forwardMsg, leftMsg, rightMsg, reverseMsg, stopMsg, greenLedMsg, redLedMsg, playMusicMsg;
 
 typedef struct {
 	uint8_t cmd;
@@ -42,12 +42,16 @@ enum commands {
 	left = 2,
 	right = 3,
 	reverse = 4,
-	stop = 5
+	stop = 5,
+	playMusic = 6,
+	stopMusic = 7
 };
 
 dataPacket receivedData;
 uint8_t robotMovingStatus = 0; // 0 means stopped and 1 means moving
+uint8_t playFinalMusic = 0; // 0 means play normal music and 1 means play final music
 uint8_t greenLedCounter = 0;
+int musicalNotesFrequencies[7][2] = {{'C', 262}, {'D', 294}, {'E', 330}, {'F', 349}, {'G', 392}, {'A', 440}, {'B', 494}};
 
 void initGPIO(void) {
 	// Enable Clock to PORTB 
@@ -145,6 +149,36 @@ void initLED(void) {
 	
 	// Set Data Direction Registers for Port C (Set them as outputs)
 	PTC->PDDR |= (MASK(GREEN_LED_1) | MASK(GREEN_LED_2) | MASK(GREEN_LED_3) | MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10) | MASK(RED_LED));
+}
+
+void initMusicPin(void) {
+	SIM->SCGC5 |= SIM_SCGC5_PORTD_MASK;
+	
+	// Configure MUX settings for music pin
+	PORTC->PCR[MUSIC_PIN] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTC->PCR[MUSIC_PIN] |= PORT_PCR_MUX(4); // Setting Alernative 4 -> TPM0_CH0
+	
+	// Enable Clock to TPM0
+	SIM->SCGC6 |= SIM_SCGC6_TPM0_MASK;
+	
+	// MCGFLCLK or MCGPLLCLK/2 - Select internal clock
+	SIM->SOPT2 &= ~SIM_SOPT2_TPMSRC_MASK;
+	SIM->SOPT2 |= SIM_SOPT2_TPMSRC(1); 
+	
+	// Set MOD values for TPM1 and TPM2
+	TPM0->MOD = 375000;
+	
+	/*
+	Edge aligned PWM:
+	Update SnC register to CMOD = 01 and PS = 111 (128)
+	*/
+	TPM0->SC &= ~((TPM_SC_CMOD_MASK) | (TPM_SC_PS_MASK));
+	TPM0->SC |= (TPM_SC_CMOD(1) | TPM_SC_PS(7));
+	TPM0->SC &= ~(TPM_SC_CPWMS_MASK);
+	
+	// Enable PWM on TPM1 Channel 0 -> PTD0
+	TPM0_C0SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK));
+	TPM0_C0SC |= (TPM_CnSC_ELSB(1) | (TPM_CnSC_MSB(1)));
 }
 
 void initUART2(uint32_t baud_rate) {
@@ -347,6 +381,18 @@ void motorControl (int cmd) {
 	}
 }
 
+void musicControl(void) {
+	if(playFinalMusic) { // Final Music
+		// Note C
+		TPM0->MOD = 375000 / musicalNotesFrequencies[0][1];
+		TPM0_C0V = (375000 / musicalNotesFrequencies[0][1]) / 2;
+	} else { // Normal Music
+		// Note B
+		TPM0->MOD = 375000 / musicalNotesFrequencies[6][1];
+		TPM0_C0V = (375000 / musicalNotesFrequencies[6][1]) / 2;
+	}
+}
+
 /*----------------------------------------------------------------------------
  * Main Control Thread
  *---------------------------------------------------------------------------*/
@@ -355,19 +401,30 @@ void control_thread(void *argument) {
 		if(receivedData.cmd == forward) {
 			robotMovingStatus = 1;
 			osMessageQueuePut(forwardMsg, &receivedData, NULL, 0);
-		} else if (receivedData.cmd == left) {
+		} 
+		if (receivedData.cmd == left) {
 			robotMovingStatus = 1;
 			osMessageQueuePut(leftMsg, &receivedData, NULL, 0);
-		} else if (receivedData.cmd == right) {
+		} 
+		if (receivedData.cmd == right) {
 			robotMovingStatus = 1;
 			osMessageQueuePut(rightMsg, &receivedData, NULL, 0);
-		} else if (receivedData.cmd == reverse) {
+		} 
+		if (receivedData.cmd == reverse) {
 			robotMovingStatus = 1;
 			osMessageQueuePut(reverseMsg, &receivedData, NULL, 0);
-		} else if (receivedData.cmd == stop) {
+		} 
+		if (receivedData.cmd == stop) {
 			robotMovingStatus = 0;
 			osMessageQueuePut(stopMsg, &receivedData, NULL, 0);
 		}
+		if (receivedData.cmd == playMusic) {
+			playFinalMusic = 1;
+		} else if (receivedData.cmd == stopMusic){
+			playFinalMusic = 0;
+		} 
+		
+		osMessageQueuePut(playMusicMsg, NULL, NULL, 0);		
 		osMessageQueuePut(greenLedMsg, NULL, NULL, 0);
 		osMessageQueuePut(redLedMsg, NULL, NULL, 0);
   }
@@ -440,13 +497,20 @@ void red_led_thread(void *argument) {
   }
 }
 
+void play_music_thread(void *argument) {
+  for (;;) {
+		musicControl();
+  }
+}
+
 int main(void) {
 	// System Initialization
 	SystemCoreClockUpdate();
 	initUART2(BAUD_RATE);
 	initGPIO();
 	initLED();
-
+	initMusicPin();
+	
 	osKernelInitialize();  // Initialize CMSIS-RTOS
 	forwardId = osThreadNew(forward_thread, NULL, NULL);
 	leftId = osThreadNew(left_thread, NULL, NULL);
@@ -456,6 +520,7 @@ int main(void) {
 	controlId = osThreadNew(control_thread, NULL, NULL);
 	greenLedId = osThreadNew(green_led_thread, NULL, NULL);
 	redLedId = osThreadNew(red_led_thread, NULL, NULL);
+	playMusicId = osThreadNew(play_music_thread, NULL, NULL);
 	
 	forwardMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
 	leftMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
@@ -464,6 +529,7 @@ int main(void) {
 	stopMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
 	greenLedMsg = osMessageQueueNew(MSG_COUNT, sizeof(uint8_t), NULL);
 	redLedMsg = osMessageQueueNew(MSG_COUNT, sizeof(uint8_t), NULL);
+	playMusicMsg = osMessageQueueNew(MSG_COUNT, sizeof(uint8_t), NULL);
 	
 	osKernelStart();  // Start thread execution
 	for (;;) {}
