@@ -97,31 +97,49 @@ void loop() {
   if(req.indexOf("status") != -1)
   {
     response = "WiFi Connected: " + ip_address;
+    digitalWrite(output26, LOW);
   }
   if(req.indexOf("forward") != -1)
   {
     response = "Forward";
+    digitalWrite(output26, HIGH);
     Serial2.write(1);
   }
   if(req.indexOf("left") != -1)
   {
     response = "Left";
+    digitalWrite(output26, HIGH);
     Serial2.write(2);
   }  
   if(req.indexOf("right") != -1)
   {
     response = "Right";
+    digitalWrite(output26, HIGH);
     Serial2.write(3);
   }
   if(req.indexOf("reverse") != -1)
   {
     response = "Reverse";
+    digitalWrite(output26, HIGH);
     Serial2.write(4);
   }
   if(req.indexOf("stop") != -1)
   {
     response = "Stop";
+    digitalWrite(output26, HIGH);
     Serial2.write(5);
+  }
+  if(req.indexOf("playMusic") != -1)
+  {
+    response = "Playing Music";
+    digitalWrite(output26, HIGH);
+    Serial2.write(6);
+  }
+  if(req.indexOf("offMusic") != -1)
+  {
+    response = "Music Turned Off";
+    digitalWrite(output26, HIGH);
+    Serial2.write(7);
   }
   
   client.println("HTTP/1.1 200 OK");
