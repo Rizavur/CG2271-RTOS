@@ -141,6 +141,18 @@ void loop() {
     digitalWrite(output26, HIGH);
     Serial2.write(7);
   }
+  if(req.indexOf("autoOn") != -1)
+  {
+    response = "Autonomous On";
+    digitalWrite(output26, HIGH);
+    Serial2.write(8);
+  }
+  if(req.indexOf("autoOff") != -1)
+  {
+    response = "Autonomous Off";
+    digitalWrite(output26, HIGH);
+    Serial2.write(9);
+  }
   
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/html");
