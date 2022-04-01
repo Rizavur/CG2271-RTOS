@@ -453,73 +453,345 @@ void finalMusic() {
 	NOTE_B4, 8, NOTE_A4, 8, NOTE_CS4, 4, NOTE_E4, 4,
 	NOTE_A4, 2
 	*/
-	TPM0->MOD = 375000 / NOTE_E5;
-	TPM0_C0V = (375000 / NOTE_E5) / 4;
-	osDelay(800);
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_D5;
-	TPM0_C0V = (375000 / NOTE_D5) / 4;
-	osDelay(800);
+	TPM0->MOD = 375000 / NOTE_AS4;
+	TPM0_C0V = (375000 / NOTE_AS4) / 4;
+	osDelay(160);
 	
-	TPM0->MOD = 375000 / NOTE_FS4;
-	TPM0_C0V = (375000 / NOTE_FS4) / 4;
-	osDelay(400);
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_E5;
-	TPM0_C0V = (375000 / NOTE_E5) / 4;
-	osDelay(800);
-		
-	TPM0->MOD = 375000 / NOTE_GS4;
-	TPM0_C0V = (375000 / NOTE_GS4) / 4;
-	osDelay(400);
-		
-	TPM0->MOD = 375000 / NOTE_CS5;
-	TPM0_C0V = (375000 / NOTE_CS5) / 4;
-	osDelay(800);
-		
-	TPM0->MOD = 375000 / NOTE_B4;
-	TPM0_C0V = (375000 / NOTE_B4) / 4;
-	osDelay(800);
-		
-	TPM0->MOD = 375000 / NOTE_D4;
-	TPM0_C0V = (375000 / NOTE_D4) / 4;
-	osDelay(400);
+	TPM0->MOD = 375000 / NOTE_AS4;
+	TPM0_C0V = (375000 / NOTE_AS4) / 4;
+	osDelay(160);
 	
-	TPM0->MOD = 375000 / NOTE_E4;
-	TPM0_C0V = (375000 / NOTE_E4) / 4;
-	osDelay(400);
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_AS4;
+	TPM0_C0V = (375000 / NOTE_AS4) / 4;
+	osDelay(160);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_F5;
+	TPM0_C0V = (375000 / NOTE_F5) / 4;
+	osDelay(40);
 		
-	TPM0->MOD = 375000 / NOTE_B4;
-	TPM0_C0V = (375000 / NOTE_B4) / 4;
-	osDelay(800);
+		TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_C6;
+	TPM0_C0V = (375000 / NOTE_C6) / 4;
+	osDelay(40);
 		
-	TPM0->MOD = 375000 / NOTE_A4;
-	TPM0_C0V = (375000 / NOTE_A4) / 4;
-	osDelay(800);
+		TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_AS5;
+	TPM0_C0V = (375000 / NOTE_AS5) / 4;
+	osDelay(160);
 		
-	TPM0->MOD = 375000 / NOTE_CS4;
-	TPM0_C0V = (375000 / NOTE_CS4) / 4;
-	osDelay(400);
+		TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_A5;
+	TPM0_C0V = (375000 / NOTE_A5) / 4;
+	osDelay(160);
 		
-	TPM0->MOD = 375000 / NOTE_E4;
-	TPM0_C0V = (375000 / NOTE_E4) / 4;
-	osDelay(400);
+		TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_G5;
+	TPM0_C0V = (375000 / NOTE_G5) / 4;
+	osDelay(160);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_F6;
+	TPM0_C0V = (375000 / NOTE_F6) / 4;
+	osDelay(40);
 		
-	TPM0->MOD = 375000 / NOTE_A4;
-	TPM0_C0V = (375000 / NOTE_A4) / 4;
-	osDelay(200);
+		TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_C6;
+	TPM0_C0V = (375000 / NOTE_C6) / 4;
+	osDelay(80);
+		
+			TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_AS5;
+	TPM0_C0V = (375000 / NOTE_AS5) / 4;
+	osDelay(160);
+		
+		TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_A5;
+	TPM0_C0V = (375000 / NOTE_A5) / 4;
+	osDelay(160);
+		
+		TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_G5;
+	TPM0_C0V = (375000 / NOTE_G5) / 4;
+	osDelay(160);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_F6;
+	TPM0_C0V = (375000 / NOTE_F6) / 4;
+	osDelay(40);
+		
+		TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_C6;
+	TPM0_C0V = (375000 / NOTE_C6) / 4;
+	osDelay(80);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_AS5;
+	TPM0_C0V = (375000 / NOTE_AS5) / 4;
+	osDelay(160);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_A5;
+	TPM0_C0V = (375000 / NOTE_A5) / 4;
+	osDelay(160);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_AS5;
+	TPM0_C0V = (375000 / NOTE_AS5) / 4;
+	osDelay(160);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_G5;
+	TPM0_C0V = (375000 / NOTE_G5) / 4;
+	osDelay(40);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_C5;
+	TPM0_C0V = (375000 / NOTE_C5) / 4;
+	osDelay(160);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_C5;
+	TPM0_C0V = (375000 / NOTE_C5) / 4;
+	osDelay(160);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_C5;
+	TPM0_C0V = (375000 / NOTE_C5) / 4;
+	osDelay(160);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_C5;
+	TPM0_C0V = (375000 / NOTE_C5) / 4;
+	osDelay(160);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_F5;
+	TPM0_C0V = (375000 / NOTE_F5) / 4;
+	osDelay(40);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_C6;
+	TPM0_C0V = (375000 / NOTE_C6) / 4;
+	osDelay(40);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_AS5;
+	TPM0_C0V = (375000 / NOTE_AS5) / 4;
+	osDelay(160);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_A5;
+	TPM0_C0V = (375000 / NOTE_A5) / 4;
+	osDelay(160);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_G5;
+	TPM0_C0V = (375000 / NOTE_G5) / 4;
+	osDelay(160);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_F6;
+	TPM0_C0V = (375000 / NOTE_F6) / 4;
+	osDelay(40);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_C6;
+	TPM0_C0V = (375000 / NOTE_C6) / 4;
+	osDelay(80);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
 }
 
 void playNormalMusic() {
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 375000 / NOTE_E5;
+  TPM0_C0V = (375000 / NOTE_E5) / 4;
+  osDelay(160);
 
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+  TPM0->MOD = 375000 / NOTE_E5;
+  TPM0_C0V = (375000 / NOTE_E5) / 4;
+  osDelay(160);
+
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(160);
+
+TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+  TPM0->MOD = 375000 / NOTE_E5;
+  TPM0_C0V = (375000 / NOTE_E5) / 4;
+  osDelay(160);
+
+TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(160);
+
+TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+  TPM0->MOD = 375000 / NOTE_C5;
+  TPM0_C0V = (375000 / NOTE_C5) / 4;
+  osDelay(160);
+
+TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+  TPM0->MOD = 375000 / NOTE_E5;
+  TPM0_C0V = (375000 / NOTE_E5) / 4;
+  osDelay(160);
+
+TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+  TPM0->MOD = 375000 / NOTE_G5;
+  TPM0_C0V = (375000 / NOTE_G5) / 4;
+  osDelay(80);
+
+TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(80);
+
+TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+  TPM0->MOD = 375000 / NOTE_G4;
+  TPM0_C0V = (375000 / NOTE_G4) / 4;
+  osDelay(160);
+
+TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(20);
+	
+	TPM0->MOD = 0;
+  TPM0_C0V = 0;
+  osDelay(80);
 }
 
 void musicControl(void) {
 	if(playFinalMusic) { // Final Music
-		// Note C
 		finalMusic();
 	} else { // Normal Music
-		// Note B
 		playNormalMusic();
 	}
 }
