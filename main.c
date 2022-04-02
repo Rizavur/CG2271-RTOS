@@ -10,17 +10,17 @@
 #define BAUD_RATE 9600
 #define UART_RX_PORTE23 23
 #define UART2_INT_PRIO 128
-#define LEFT_CONTROL_1 0 // Port B Pin 0 -> TPM1_CH0
-#define RIGHT_CONTROL_1 1 // Port B Pin 1 -> TPM1_CH1
-#define LEFT_CONTROL_2 2 // Port B Pin 2 -> TPM2_CH0
-#define RIGHT_CONTROL_2 3 // Port B Pin 3 -> TPM2_CH1
-#define MUSIC_PIN 0 // Port D Pin 0 -> TPM0_CH0
+#define LEFT_CONTROL_1 0 // Port D Pin 0 -> TPM0_CH0
+#define LEFT_CONTROL_2 1 // Port D Pin 1 -> TPM0_CH1
+#define RIGHT_CONTROL_1 2 // Port D Pin 2 -> TPM0_CH2
+#define RIGHT_CONTROL_2 3 // Port D Pin 3 -> TPM0_CH3
+#define MUSIC_PIN 0 // Port B Pin 0 -> TPM1_CH0
 #define MSG_COUNT 1
 
 // Port C Pins
 #define GREEN_LED_1 1
 #define GREEN_LED_2 2
-#define GREEN_LED_3 3
+#define GREEN_LED_3 12
 #define GREEN_LED_4 4
 #define GREEN_LED_5 5
 #define GREEN_LED_6 6
@@ -143,60 +143,55 @@ uint8_t robotMovingStatus = 0; // 0 means stopped and 1 means moving
 uint8_t playFinalMusic = 0; // 0 means play normal music and 1 means play final music
 
 void initGPIO(void) {
-	// Enable Clock to PORTB 
-	SIM->SCGC5 |= SIM_SCGC5_PORTB_MASK;
+	// Enable Clock to PORTD
+	SIM->SCGC5 |= SIM_SCGC5_PORTD_MASK;
 
 	// Configure MUX settings to make all 3 pins GPIO
-	PORTB->PCR[LEFT_CONTROL_1] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
-	PORTB->PCR[LEFT_CONTROL_1] |= PORT_PCR_MUX(3); // Setting Alernative 3 Timer (PWM)
+	PORTD->PCR[LEFT_CONTROL_1] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTD->PCR[LEFT_CONTROL_1] |= PORT_PCR_MUX(4); // Setting Alernative 4 Timer (PWM)
 
-	PORTB->PCR[RIGHT_CONTROL_1] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
-	PORTB->PCR[RIGHT_CONTROL_1] |= PORT_PCR_MUX(3); // Setting Alernative 3 Timer (PWM)
+	PORTD->PCR[RIGHT_CONTROL_1] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTD->PCR[RIGHT_CONTROL_1] |= PORT_PCR_MUX(4); // Setting Alernative 4 Timer (PWM)
 	
-	PORTB->PCR[LEFT_CONTROL_2] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
-	PORTB->PCR[LEFT_CONTROL_2] |= PORT_PCR_MUX(3); // Setting Alernative 3 Timer (PWM)
+	PORTD->PCR[LEFT_CONTROL_2] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTD->PCR[LEFT_CONTROL_2] |= PORT_PCR_MUX(4); // Setting Alernative 4 Timer (PWM)
 
-	PORTB->PCR[RIGHT_CONTROL_2] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
-	PORTB->PCR[RIGHT_CONTROL_2] |= PORT_PCR_MUX(3); // Setting Alernative 3 Timer (PWM)
+	PORTD->PCR[RIGHT_CONTROL_2] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTD->PCR[RIGHT_CONTROL_2] |= PORT_PCR_MUX(4); // Setting Alernative 4 Timer (PWM)
 
-	// Enable Clock to TPM1
-	SIM->SCGC6 |= (SIM_SCGC6_TPM1_MASK | SIM_SCGC6_TPM2_MASK);
+	// Enable Clock to TPM0
+	SIM->SCGC6 |= SIM_SCGC6_TPM0_MASK;
 	
 	// MCGFLCLK or MCGPLLCLK/2 - Select internal clock
 	SIM->SOPT2 &= ~SIM_SOPT2_TPMSRC_MASK;
 	SIM->SOPT2 |= SIM_SOPT2_TPMSRC(1); 
 	
-	// Set MOD values for TPM1 and TPM2
-	TPM1->MOD = 375000;
-	TPM2->MOD = 375000;
+	// Set MOD value for TPM0
+	TPM0->MOD = 375000;
 	
 	/*
 	Edge aligned PWM:
 	Update SnC register to CMOD = 01 and PS = 111 (128)
 	*/
-	TPM1->SC &= ~((TPM_SC_CMOD_MASK) | (TPM_SC_PS_MASK));
-	TPM1->SC |= (TPM_SC_CMOD(1) | TPM_SC_PS(7));
-	TPM1->SC &= ~(TPM_SC_CPWMS_MASK);
+	TPM0->SC &= ~((TPM_SC_CMOD_MASK) | (TPM_SC_PS_MASK));
+	TPM0->SC |= (TPM_SC_CMOD(1) | TPM_SC_PS(7));
+	TPM0->SC &= ~(TPM_SC_CPWMS_MASK);
 	
-	TPM2->SC &= ~((TPM_SC_CMOD_MASK) | (TPM_SC_PS_MASK));
-	TPM2->SC |= (TPM_SC_CMOD(1) | TPM_SC_PS(7));
-	TPM2->SC &= ~(TPM_SC_CPWMS_MASK);
+	// Enable PWM on TPM0 Channel 0 -> PTD0
+	TPM0_C0SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK));
+	TPM0_C0SC |= (TPM_CnSC_ELSB(1) | (TPM_CnSC_MSB(1)));
 	
-	// Enable PWM on TPM1 Channel 0 -> PTB0
-	TPM1_C0SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK));
-	TPM1_C0SC |= (TPM_CnSC_ELSB(1) | (TPM_CnSC_MSB(1)));
+	// Enable PWM on TPM0 Channel 1 -> PTD1
+	TPM0_C1SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK));
+	TPM0_C1SC |= (TPM_CnSC_ELSB(1) | (TPM_CnSC_MSB(1)));
 	
-	// Enable PWM on TPM1 Channel 1 -> PTB1
-	TPM1_C1SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK));
-	TPM1_C1SC |= (TPM_CnSC_ELSB(1) | (TPM_CnSC_MSB(1)));
+	// Enable PWM on TPM0 Channel 2 -> PTD2
+	TPM0_C2SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK));
+	TPM0_C2SC |= (TPM_CnSC_ELSB(1) | (TPM_CnSC_MSB(1)));
 	
-	// Enable PWM on TPM2 Channel 0 -> PTB2
-	TPM2_C0SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK));
-	TPM2_C0SC |= (TPM_CnSC_ELSB(1) | (TPM_CnSC_MSB(1)));
-	
-	// Enable PWM on TPM2 Channel 1 -> PTB3
-	TPM2_C1SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK));
-	TPM2_C1SC |= (TPM_CnSC_ELSB(1) | (TPM_CnSC_MSB(1)));
+	// Enable PWM on TPM0 Channel 3 -> PTD3
+	TPM0_C3SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK));
+	TPM0_C3SC |= (TPM_CnSC_ELSB(1) | (TPM_CnSC_MSB(1)));
 }
 
 void initLED(void) {
@@ -210,8 +205,8 @@ void initLED(void) {
 	PORTA->PCR[GREEN_LED_2] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
 	PORTA->PCR[GREEN_LED_2] |= PORT_PCR_MUX(1); // Setting Alernative 1
 	
-	PORTC->PCR[GREEN_LED_3] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
-	PORTC->PCR[GREEN_LED_3] |= PORT_PCR_MUX(1); // Setting Alernative 1
+	PORTA->PCR[GREEN_LED_3] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTA->PCR[GREEN_LED_3] |= PORT_PCR_MUX(1); // Setting Alernative 1
 
 	PORTC->PCR[GREEN_LED_4] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
 	PORTC->PCR[GREEN_LED_4] |= PORT_PCR_MUX(1); // Setting Alernative 1
@@ -238,38 +233,38 @@ void initLED(void) {
 	PORTC->PCR[RED_LED] |= PORT_PCR_MUX(1); // Setting Alernative 1
 	
 	// Set Data Direction Registers for Port C (Set them as outputs)
-	PTA->PDDR |= (MASK(GREEN_LED_1) | MASK(GREEN_LED_2) );
-	PTC->PDDR |= (MASK(GREEN_LED_3) | MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10) | MASK(RED_LED));
+	PTA->PDDR |= (MASK(GREEN_LED_1) | MASK(GREEN_LED_2) | MASK(GREEN_LED_3));
+	PTC->PDDR |= (MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10) | MASK(RED_LED));
 }
 
 void initMusicPin(void) {
-	SIM->SCGC5 |= SIM_SCGC5_PORTD_MASK;
+	SIM->SCGC5 |= SIM_SCGC5_PORTB_MASK;
 	
 	// Configure MUX settings for music pin
-	PORTD->PCR[MUSIC_PIN] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
-	PORTD->PCR[MUSIC_PIN] |= PORT_PCR_MUX(4); // Setting Alernative 4 -> TPM0_CH0
+	PORTB->PCR[MUSIC_PIN] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTB->PCR[MUSIC_PIN] |= PORT_PCR_MUX(3); // Setting Alernative 3 -> TPM1_CH0
 	
-	// Enable Clock to TPM0
-	SIM->SCGC6 |= SIM_SCGC6_TPM0_MASK;
+	// Enable Clock to TPM1
+	SIM->SCGC6 |= SIM_SCGC6_TPM1_MASK;
 	
 	// MCGFLCLK or MCGPLLCLK/2 - Select internal clock
 	SIM->SOPT2 &= ~SIM_SOPT2_TPMSRC_MASK;
 	SIM->SOPT2 |= SIM_SOPT2_TPMSRC(1); 
 	
 	// Set MOD values for TPM1 and TPM2
-	TPM0->MOD = 375000;
+	TPM1->MOD = 375000;
 	
 	/*
 	Edge aligned PWM:
 	Update SnC register to CMOD = 01 and PS = 111 (128)
 	*/
-	TPM0->SC &= ~((TPM_SC_CMOD_MASK) | (TPM_SC_PS_MASK));
-	TPM0->SC |= (TPM_SC_CMOD(1) | TPM_SC_PS(7));
-	TPM0->SC &= ~(TPM_SC_CPWMS_MASK);
+	TPM1->SC &= ~((TPM_SC_CMOD_MASK) | (TPM_SC_PS_MASK));
+	TPM1->SC |= (TPM_SC_CMOD(1) | TPM_SC_PS(7));
+	TPM1->SC &= ~(TPM_SC_CPWMS_MASK);
 	
 	// Enable PWM on TPM1 Channel 0 -> PTD0
-	TPM0_C0SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK));
-	TPM0_C0SC |= (TPM_CnSC_ELSB(1) | (TPM_CnSC_MSB(1)));
+	TPM1_C0SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK));
+	TPM1_C0SC |= (TPM_CnSC_ELSB(1) | (TPM_CnSC_MSB(1)));
 }
 
 void initUART2(uint32_t baud_rate) {
@@ -325,14 +320,14 @@ void UART2_IRQHandler(void) {
 
 void offAllGreenLeds(void) {
 	// Turn off all Green LEDs
-	PTA->PCOR = (MASK(GREEN_LED_1) | MASK(GREEN_LED_2));
-	PTC->PCOR = (MASK(GREEN_LED_3) | MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10));
+	PTA->PCOR = (MASK(GREEN_LED_1) | MASK(GREEN_LED_2) | MASK(GREEN_LED_3));
+	PTC->PCOR = (MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10));
 }
 
 void onAllGreenLeds(void) {
   // Turn on all Green LEDs
-	PTA->PSOR = (MASK(GREEN_LED_1) | MASK(GREEN_LED_2));
-	PTC->PSOR = (MASK(GREEN_LED_3) | MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10));
+	PTA->PSOR = (MASK(GREEN_LED_1) | MASK(GREEN_LED_2) | MASK(GREEN_LED_3));
+	PTC->PSOR = (MASK(GREEN_LED_4) | MASK(GREEN_LED_5) | MASK(GREEN_LED_6) | MASK(GREEN_LED_7) | MASK(GREEN_LED_8) | MASK(GREEN_LED_9) | MASK(GREEN_LED_10));
 }
 
 void greenLedControl() {
@@ -343,43 +338,43 @@ void greenLedControl() {
     //Moving
 		offAllGreenLeds();
 		PTA->PSOR = MASK(GREEN_LED_1);
-		osDelay(100);
+		osDelay(20);
 		
 		offAllGreenLeds();
 		PTA->PSOR = MASK(GREEN_LED_2);
-		osDelay(100);
+		osDelay(20);
 		
 		offAllGreenLeds();
-		PTC->PSOR = MASK(GREEN_LED_3);
-		osDelay(100);
+		PTA->PSOR = MASK(GREEN_LED_3);
+		osDelay(20);
 		
 		offAllGreenLeds();
 		PTC->PSOR = MASK(GREEN_LED_4);
-		osDelay(100);
+		osDelay(20);
 		
 		offAllGreenLeds();
 		PTC->PSOR = MASK(GREEN_LED_5);
-		osDelay(100);
+		osDelay(20);
 		
 		offAllGreenLeds();
 		PTC->PSOR = MASK(GREEN_LED_6);
-		osDelay(100);
+		osDelay(20);
 		
 		offAllGreenLeds();
 		PTC->PSOR = MASK(GREEN_LED_7);  
-		osDelay(100);
+		osDelay(20);
 		
 		offAllGreenLeds();
 		PTC->PSOR = MASK(GREEN_LED_8); 
-		osDelay(100);
+		osDelay(20);
 		
 		offAllGreenLeds();
 		PTC->PSOR = MASK(GREEN_LED_9); 
-		osDelay(100);
+		osDelay(20);
 		
 		offAllGreenLeds();
 		PTC->PSOR = MASK(GREEN_LED_10);
-		osDelay(100);
+		osDelay(20);
 
 		offAllGreenLeds();
     }
@@ -408,40 +403,40 @@ void motorControl (int cmd) {
 		case forward:
 			leftFrequency = 5;
 			rightFrequency = 5;
-			TPM1_C0V = (375000 / leftFrequency) / 2;
-			TPM1_C1V = (375000 / rightFrequency) / 2;
-			TPM2_C0V = 0;
-			TPM2_C1V = 0;
+			TPM0_C0V = (375000 / leftFrequency) / 2;
+			TPM0_C2V = (375000 / rightFrequency) / 2;
+			TPM0_C1V = 0;
+			TPM0_C3V = 0;
 			break;
 		case left:
 			leftFrequency = 20;
 			rightFrequency = 5;
-			TPM1_C0V = (375000 / leftFrequency) / 2;
-			TPM1_C1V = (375000 / rightFrequency) / 2;
-			TPM2_C0V = 0;
-			TPM2_C1V = 0;
+			TPM0_C0V = (375000 / leftFrequency) / 2;
+			TPM0_C2V = (375000 / rightFrequency) / 2;
+			TPM0_C1V = 0;
+			TPM0_C3V = 0;
 			break;
 		case right:		
 			leftFrequency = 5;
 			rightFrequency = 20;
-			TPM1_C0V = (375000 / leftFrequency) / 2;
-			TPM1_C1V = (375000 / rightFrequency) / 2;
-			TPM2_C0V = 0;
-			TPM2_C1V = 0;
+			TPM0_C0V = (375000 / leftFrequency) / 2;
+			TPM0_C2V = (375000 / rightFrequency) / 2;
+			TPM0_C1V = 0;
+			TPM0_C3V = 0;
 			break;
 		case reverse:
 			leftFrequency = 5;
 			rightFrequency = 5;
-			TPM1_C0V = 0;
-			TPM1_C1V = 0;
-			TPM2_C0V = (375000 / leftFrequency) / 2;
-			TPM2_C1V = (375000 / rightFrequency) / 2;
+			TPM0_C0V = 0;
+			TPM0_C2V = 0;
+			TPM0_C1V = (375000 / leftFrequency) / 2;
+			TPM0_C3V = (375000 / rightFrequency) / 2;
 			break;
 		case stop:
-			TPM1_C0V = 0;
-			TPM1_C1V = 0;
-			TPM2_C0V = 0;
-			TPM2_C1V = 0;
+			TPM0_C0V = 0;
+			TPM0_C2V = 0;
+			TPM0_C1V = 0;
+			TPM0_C3V = 0;
 			break;
 	}
 }
@@ -453,338 +448,338 @@ void finalMusic() {
 	NOTE_B4, 8, NOTE_A4, 8, NOTE_CS4, 4, NOTE_E4, 4,
 	NOTE_A4, 2
 	*/
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_AS4;
-	TPM0_C0V = (375000 / NOTE_AS4) / 4;
+	TPM1->MOD = 375000 / NOTE_AS4;
+	TPM1_C0V = (375000 / NOTE_AS4) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_AS4;
-	TPM0_C0V = (375000 / NOTE_AS4) / 4;
+	TPM1->MOD = 375000 / NOTE_AS4;
+	TPM1_C0V = (375000 / NOTE_AS4) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_AS4;
-	TPM0_C0V = (375000 / NOTE_AS4) / 4;
+	TPM1->MOD = 375000 / NOTE_AS4;
+	TPM1_C0V = (375000 / NOTE_AS4) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_F5;
-	TPM0_C0V = (375000 / NOTE_F5) / 4;
+	TPM1->MOD = 375000 / NOTE_F5;
+	TPM1_C0V = (375000 / NOTE_F5) / 4;
 	osDelay(40);
 		
-		TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_C6;
-	TPM0_C0V = (375000 / NOTE_C6) / 4;
+	TPM1->MOD = 375000 / NOTE_C6;
+	TPM1_C0V = (375000 / NOTE_C6) / 4;
 	osDelay(40);
 		
-		TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_AS5;
-	TPM0_C0V = (375000 / NOTE_AS5) / 4;
+	TPM1->MOD = 375000 / NOTE_AS5;
+	TPM1_C0V = (375000 / NOTE_AS5) / 4;
 	osDelay(160);
 		
-		TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_A5;
-	TPM0_C0V = (375000 / NOTE_A5) / 4;
+	TPM1->MOD = 375000 / NOTE_A5;
+	TPM1_C0V = (375000 / NOTE_A5) / 4;
 	osDelay(160);
 		
-		TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_G5;
-	TPM0_C0V = (375000 / NOTE_G5) / 4;
+	TPM1->MOD = 375000 / NOTE_G5;
+	TPM1_C0V = (375000 / NOTE_G5) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_F6;
-	TPM0_C0V = (375000 / NOTE_F6) / 4;
+	TPM1->MOD = 375000 / NOTE_F6;
+	TPM1_C0V = (375000 / NOTE_F6) / 4;
 	osDelay(40);
 		
-		TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_C6;
-	TPM0_C0V = (375000 / NOTE_C6) / 4;
+	TPM1->MOD = 375000 / NOTE_C6;
+	TPM1_C0V = (375000 / NOTE_C6) / 4;
 	osDelay(80);
 		
-			TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_AS5;
-	TPM0_C0V = (375000 / NOTE_AS5) / 4;
+	TPM1->MOD = 375000 / NOTE_AS5;
+	TPM1_C0V = (375000 / NOTE_AS5) / 4;
 	osDelay(160);
 		
-		TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_A5;
-	TPM0_C0V = (375000 / NOTE_A5) / 4;
+	TPM1->MOD = 375000 / NOTE_A5;
+	TPM1_C0V = (375000 / NOTE_A5) / 4;
 	osDelay(160);
 		
-		TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_G5;
-	TPM0_C0V = (375000 / NOTE_G5) / 4;
+	TPM1->MOD = 375000 / NOTE_G5;
+	TPM1_C0V = (375000 / NOTE_G5) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_F6;
-	TPM0_C0V = (375000 / NOTE_F6) / 4;
+	TPM1->MOD = 375000 / NOTE_F6;
+	TPM1_C0V = (375000 / NOTE_F6) / 4;
 	osDelay(40);
 		
-		TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_C6;
-	TPM0_C0V = (375000 / NOTE_C6) / 4;
+	TPM1->MOD = 375000 / NOTE_C6;
+	TPM1_C0V = (375000 / NOTE_C6) / 4;
 	osDelay(80);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_AS5;
-	TPM0_C0V = (375000 / NOTE_AS5) / 4;
+	TPM1->MOD = 375000 / NOTE_AS5;
+	TPM1_C0V = (375000 / NOTE_AS5) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_A5;
-	TPM0_C0V = (375000 / NOTE_A5) / 4;
+	TPM1->MOD = 375000 / NOTE_A5;
+	TPM1_C0V = (375000 / NOTE_A5) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_AS5;
-	TPM0_C0V = (375000 / NOTE_AS5) / 4;
+	TPM1->MOD = 375000 / NOTE_AS5;
+	TPM1_C0V = (375000 / NOTE_AS5) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_G5;
-	TPM0_C0V = (375000 / NOTE_G5) / 4;
+	TPM1->MOD = 375000 / NOTE_G5;
+	TPM1_C0V = (375000 / NOTE_G5) / 4;
 	osDelay(40);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_C5;
-	TPM0_C0V = (375000 / NOTE_C5) / 4;
+	TPM1->MOD = 375000 / NOTE_C5;
+	TPM1_C0V = (375000 / NOTE_C5) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_C5;
-	TPM0_C0V = (375000 / NOTE_C5) / 4;
+	TPM1->MOD = 375000 / NOTE_C5;
+	TPM1_C0V = (375000 / NOTE_C5) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_C5;
-	TPM0_C0V = (375000 / NOTE_C5) / 4;
+	TPM1->MOD = 375000 / NOTE_C5;
+	TPM1_C0V = (375000 / NOTE_C5) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_C5;
-	TPM0_C0V = (375000 / NOTE_C5) / 4;
+	TPM1->MOD = 375000 / NOTE_C5;
+	TPM1_C0V = (375000 / NOTE_C5) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_F5;
-	TPM0_C0V = (375000 / NOTE_F5) / 4;
+	TPM1->MOD = 375000 / NOTE_F5;
+	TPM1_C0V = (375000 / NOTE_F5) / 4;
 	osDelay(40);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_C6;
-	TPM0_C0V = (375000 / NOTE_C6) / 4;
+	TPM1->MOD = 375000 / NOTE_C6;
+	TPM1_C0V = (375000 / NOTE_C6) / 4;
 	osDelay(40);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_AS5;
-	TPM0_C0V = (375000 / NOTE_AS5) / 4;
+	TPM1->MOD = 375000 / NOTE_AS5;
+	TPM1_C0V = (375000 / NOTE_AS5) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_A5;
-	TPM0_C0V = (375000 / NOTE_A5) / 4;
+	TPM1->MOD = 375000 / NOTE_A5;
+	TPM1_C0V = (375000 / NOTE_A5) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_G5;
-	TPM0_C0V = (375000 / NOTE_G5) / 4;
+	TPM1->MOD = 375000 / NOTE_G5;
+	TPM1_C0V = (375000 / NOTE_G5) / 4;
 	osDelay(160);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_F6;
-	TPM0_C0V = (375000 / NOTE_F6) / 4;
+	TPM1->MOD = 375000 / NOTE_F6;
+	TPM1_C0V = (375000 / NOTE_F6) / 4;
 	osDelay(40);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_C6;
-	TPM0_C0V = (375000 / NOTE_C6) / 4;
+	TPM1->MOD = 375000 / NOTE_C6;
+	TPM1_C0V = (375000 / NOTE_C6) / 4;
 	osDelay(80);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 }
 
-void playNormalMusic() {
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+void normalMusic() {
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 375000 / NOTE_E5;
-  TPM0_C0V = (375000 / NOTE_E5) / 4;
+	TPM1->MOD = 375000 / NOTE_E5;
+  TPM1_C0V = (375000 / NOTE_E5) / 4;
   osDelay(160);
 
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-  TPM0->MOD = 375000 / NOTE_E5;
-  TPM0_C0V = (375000 / NOTE_E5) / 4;
+  TPM1->MOD = 375000 / NOTE_E5;
+  TPM1_C0V = (375000 / NOTE_E5) / 4;
   osDelay(160);
 
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(160);
 
-TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-  TPM0->MOD = 375000 / NOTE_E5;
-  TPM0_C0V = (375000 / NOTE_E5) / 4;
+  TPM1->MOD = 375000 / NOTE_E5;
+  TPM1_C0V = (375000 / NOTE_E5) / 4;
   osDelay(160);
 
-TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(160);
 
-TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-  TPM0->MOD = 375000 / NOTE_C5;
-  TPM0_C0V = (375000 / NOTE_C5) / 4;
+  TPM1->MOD = 375000 / NOTE_C5;
+  TPM1_C0V = (375000 / NOTE_C5) / 4;
   osDelay(160);
 
-TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-  TPM0->MOD = 375000 / NOTE_E5;
-  TPM0_C0V = (375000 / NOTE_E5) / 4;
+  TPM1->MOD = 375000 / NOTE_E5;
+  TPM1_C0V = (375000 / NOTE_E5) / 4;
   osDelay(160);
 
-TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-  TPM0->MOD = 375000 / NOTE_G5;
-  TPM0_C0V = (375000 / NOTE_G5) / 4;
+  TPM1->MOD = 375000 / NOTE_G5;
+  TPM1_C0V = (375000 / NOTE_G5) / 4;
   osDelay(80);
 
-TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(80);
 
-TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-  TPM0->MOD = 375000 / NOTE_G4;
-  TPM0_C0V = (375000 / NOTE_G4) / 4;
+  TPM1->MOD = 375000 / NOTE_G4;
+  TPM1_C0V = (375000 / NOTE_G4) / 4;
   osDelay(160);
 
-TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(20);
 	
-	TPM0->MOD = 0;
-  TPM0_C0V = 0;
+	TPM1->MOD = 0;
+  TPM1_C0V = 0;
   osDelay(80);
 }
 
@@ -792,7 +787,7 @@ void musicControl(void) {
 	if(playFinalMusic) { // Final Music
 		finalMusic();
 	} else { // Normal Music
-		playNormalMusic();
+		normalMusic();
 	}
 }
 
