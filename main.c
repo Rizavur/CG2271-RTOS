@@ -16,6 +16,8 @@
 #define RIGHT_CONTROL_2 3 // Port D Pin 3 -> TPM0_CH3
 #define MUSIC_PIN 0 // Port B Pin 0 -> TPM1_CH0
 #define MSG_COUNT 1
+#define ULTRASONIC_ECHO 3 // Port B Pin 3 -> TPM2_CH1
+#define ULTRASONIC_TRIGGER 2 // Port B Pin 2 -> TPM2_CH0
 
 // Port C Pins
 #define GREEN_LED_1 1
@@ -121,8 +123,10 @@
 #define NOTE_DS8 4978
 #define REST      0
 
-osThreadId_t forwardId, leftId, rightId, reverseId, stopId, controlId, greenLedId, redLedId, playMusicId;
-osMessageQueueId_t forwardMsg, leftMsg, rightMsg, reverseMsg, stopMsg, greenLedMsg, redLedMsg, playMusicMsg;
+osThreadId_t motorId, controlId, greenLedId, redLedId, playMusicId, autonomousModeId, ultrasonicId;
+osMessageQueueId_t motorMsg;
+osSemaphoreId_t autonomousModeSem, autonomousStopSem, manualModeSem;
+osThreadAttr_t highPriority = {.priority = osPriorityHigh};
 
 typedef struct {
 	uint8_t cmd;
@@ -135,14 +139,18 @@ enum commands {
 	reverse = 4,
 	stop = 5,
 	playMusic = 6,
-	stopMusic = 7
+	stopMusic = 7,
+	autonomousMode = 8,
+	ninetyLeft = 9,
+	ninetyRight = 10
 };
 
 dataPacket receivedData;
 uint8_t robotMovingStatus = 0; // 0 means stopped and 1 means moving
 uint8_t playFinalMusic = 0; // 0 means play normal music and 1 means play final music
+volatile int ultrasonicFlag = 0, ultrasonicStart = 1, ultrasonicValue = 0;
 
-void initGPIO(void) {
+void initMotorPins(void) {
 	// Enable Clock to PORTD
 	SIM->SCGC5 |= SIM_SCGC5_PORTD_MASK;
 
@@ -194,7 +202,8 @@ void initGPIO(void) {
 	TPM0_C3SC |= (TPM_CnSC_ELSB(1) | (TPM_CnSC_MSB(1)));
 }
 
-void initLED(void) {
+void initLEDPins(void) {
+	// Enable clock to Port C and Port A
 	SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK;
 	SIM->SCGC5 |= SIM_SCGC5_PORTA_MASK;
 
@@ -238,6 +247,7 @@ void initLED(void) {
 }
 
 void initMusicPin(void) {
+	// Enable clock to Port B
 	SIM->SCGC5 |= SIM_SCGC5_PORTB_MASK;
 	
 	// Configure MUX settings for music pin
@@ -251,7 +261,7 @@ void initMusicPin(void) {
 	SIM->SOPT2 &= ~SIM_SOPT2_TPMSRC_MASK;
 	SIM->SOPT2 |= SIM_SOPT2_TPMSRC(1); 
 	
-	// Set MOD values for TPM1 and TPM2
+	// Set MOD values for TPM1
 	TPM1->MOD = 375000;
 	
 	/*
@@ -265,6 +275,42 @@ void initMusicPin(void) {
 	// Enable PWM on TPM1 Channel 0 -> PTD0
 	TPM1_C0SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK));
 	TPM1_C0SC |= (TPM_CnSC_ELSB(1) | (TPM_CnSC_MSB(1)));
+}
+
+void initUltrasonic() {
+	// Enable clock to Port B
+	SIM->SCGC5 |= SIM_SCGC5_PORTB_MASK;
+	
+	// Enable clock to TPM2
+	SIM_SCGC6 |= SIM_SCGC6_TPM2_MASK;
+ 
+ 	// MCGFLCLK or MCGPLLCLK/2 - Select internal clock
+	SIM->SOPT2 &= ~SIM_SOPT2_TPMSRC_MASK;
+	SIM->SOPT2 |= SIM_SOPT2_TPMSRC(1);
+ 
+	PORTB->PCR[ULTRASONIC_ECHO] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTB->PCR[ULTRASONIC_ECHO] |= PORT_PCR_MUX(3); // Setting Alernative 1 -> TPM2_C0
+	PORTB->PCR[ULTRASONIC_TRIGGER] &= ~PORT_PCR_MUX_MASK; // Clearing Pin Control Register
+	PORTB->PCR[ULTRASONIC_TRIGGER] |= PORT_PCR_MUX(3); // Setting Alernative 1 -> TPM2_C1
+	
+	/*
+	Edge aligned PWM:
+	Update SnC register to CMOD = 01 and PS = 101 (32)
+	*/
+	TPM2_SC &= ~(TPM_SC_CMOD_MASK | TPM_SC_PS_MASK | TPM_SC_CPWMS_MASK);
+	TPM2_SC |= TPM_SC_PS(5);
+	
+	// Set MOD value for TPM2 
+	TPM2_MOD = 10000;
+	
+	// Enable interrupt for TPM2_CH1 (Echo Pin)
+	TPM2_C1SC |= TPM_CnSC_CHIE_MASK;
+	
+	// After prescaler, 48Mhz --> 1.5Mhz. Need pulse every 10 micro sec --> frequency = 100Khz.
+	// CnV value needed = 1.5Mhz/100Khz = 15. (For Trigger pin)
+	TPM2_C0V = 15;
+		
+	NVIC_SetPriority(TPM2_IRQn, 0);
 }
 
 void initUART2(uint32_t baud_rate) {
@@ -311,10 +357,39 @@ void UART2_IRQHandler(void) {
 		dataPacket received;
 		received.cmd = UART2->D;
 		receivedData = received;
+		if (received.cmd == autonomousMode) {
+			osSemaphoreRelease(autonomousModeSem);
+		} else {
+			osSemaphoreRelease(manualModeSem);
+		}
 	}
 	
 	if (UART2->S1 & (UART_S1_OR_MASK | UART_S1_NF_MASK | UART_S1_FE_MASK | UART_S1_PF_MASK)) {
 		// Handle the error here
+	}
+}
+
+void TPM2_IRQHandler(void) {
+	NVIC_ClearPendingIRQ(TPM2_IRQn);
+	
+	if (ultrasonicStart) {
+		// Reset TPM2 count
+		TPM2_CNT = 0;
+
+		ultrasonicStart = 0;
+
+		// Capture on falling edges for TPM2_C1 (Echo Pin)
+		TPM2_C1SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK));
+		TPM2_C1SC |= TPM_CnSC_ELSB_MASK;
+	} else {
+		ultrasonicValue = TPM2_C1V;
+		// If ultrasonic required and object is detected within range
+		if (ultrasonicFlag && ultrasonicValue <= 3800 && ultrasonicValue >= 600) {
+				osSemaphoreRelease(autonomousStopSem);
+				ultrasonicFlag = 0;
+		}
+		ultrasonicStart = 1;
+		NVIC_DisableIRQ(TPM2_IRQn);
 	}
 }
 
@@ -438,6 +513,20 @@ void motorControl (int cmd) {
 			TPM0_C1V = 0;
 			TPM0_C3V = 0;
 			break;
+		case ninetyRight:
+			leftFrequency = 5;
+			rightFrequency = 5;
+			TPM0_C0V = (375000 / leftFrequency) / 2;
+			TPM0_C2V = 0;
+			TPM0_C1V = 0;
+			TPM0_C3V = (375000 / rightFrequency) / 2;
+		case ninetyLeft:
+			leftFrequency = 5;
+			rightFrequency = 5;
+			TPM0_C0V = 0;
+			TPM0_C2V = (375000 / rightFrequency) / 2;
+			TPM0_C1V = (375000 / leftFrequency) / 2;
+			TPM0_C3V = 0;
 	}
 }
 
@@ -796,90 +885,54 @@ void musicControl(void) {
  *---------------------------------------------------------------------------*/
 void control_thread(void *argument) {
   for (;;) {
-		if(receivedData.cmd == forward) {
-			robotMovingStatus = 1;
-			osMessageQueuePut(forwardMsg, &receivedData, NULL, 0);
-		} 
-		if (receivedData.cmd == left) {
-			robotMovingStatus = 1;
-			osMessageQueuePut(leftMsg, &receivedData, NULL, 0);
-		} 
-		if (receivedData.cmd == right) {
-			robotMovingStatus = 1;
-			osMessageQueuePut(rightMsg, &receivedData, NULL, 0);
-		} 
-		if (receivedData.cmd == reverse) {
-			robotMovingStatus = 1;
-			osMessageQueuePut(reverseMsg, &receivedData, NULL, 0);
-		} 
-		if (receivedData.cmd == stop) {
-			robotMovingStatus = 0;
-			osMessageQueuePut(stopMsg, &receivedData, NULL, 0);
+		osSemaphoreAcquire(manualModeSem, osWaitForever);
+		switch(receivedData.cmd) {
+			case forward:
+			case left:
+			case right:
+			case reverse:
+			case stop:
+				osMessageQueuePut(motorMsg, &receivedData.cmd, NULL, 0);
+				break;
+			case playMusic:
+				playFinalMusic = 1;
+				break;
+			case stopMusic:
+				playFinalMusic = 0;
+				break;
 		}
-		if (receivedData.cmd == playMusic) {
-			playFinalMusic = 1;
-		} else if (receivedData.cmd == stopMusic){
-			playFinalMusic = 0;
-		} 
-		
-		osMessageQueuePut(playMusicMsg, NULL, NULL, 0);		
-		osMessageQueuePut(greenLedMsg, NULL, NULL, 0);
-		osMessageQueuePut(redLedMsg, NULL, NULL, 0);
   }
 }
 
 /*----------------------------------------------------------------------------
- * Move Robot Forward
+ * Move Robot
  *---------------------------------------------------------------------------*/
-void forward_thread(void *argument) {
+void motor_thread(void *argument) {
   dataPacket rxData;
   for (;;) {
-		osMessageQueueGet(forwardMsg, &rxData, NULL, osWaitForever);
-		motorControl(forward);
-  }
-}
-
-/*----------------------------------------------------------------------------
- * Move Robot Left
- *---------------------------------------------------------------------------*/
-void left_thread(void *argument) {
-  dataPacket rxData;
-  for (;;) {
-		osMessageQueueGet(leftMsg, &rxData, NULL, osWaitForever);
-		motorControl(left);
-  }
-}
-
-/*----------------------------------------------------------------------------
- * Move Robot Right
- *---------------------------------------------------------------------------*/
-void right_thread(void *argument) {
-  dataPacket rxData;
-  for (;;) {
-		osMessageQueueGet(rightMsg, &rxData, NULL, osWaitForever);
-		motorControl(right);
-  }
-}
-
-/*----------------------------------------------------------------------------
- * Move Robot Backwards
- *---------------------------------------------------------------------------*/
-void reverse_thread(void *argument) {
-  dataPacket rxData;
-  for (;;) {
-		osMessageQueueGet(reverseMsg, &rxData, NULL, osWaitForever);
-		motorControl(reverse);
-  }
-}
-
-/*----------------------------------------------------------------------------
- * Stop Robot
- *---------------------------------------------------------------------------*/
-void stop_thread(void *argument) {
-  dataPacket rxData;
-  for (;;) {
-		osMessageQueueGet(stopMsg, &rxData, NULL, osWaitForever);
-		motorControl(stop);
+		osMessageQueueGet(motorMsg, &rxData, NULL, osWaitForever);
+		switch(receivedData.cmd) {
+			case forward:
+				robotMovingStatus = 1;
+				motorControl(forward);
+				break;
+			case left:
+				robotMovingStatus = 1;
+				motorControl(left);
+				break;
+			case right:
+				robotMovingStatus = 1;
+				motorControl(right);
+				break;
+			case reverse:
+				robotMovingStatus = 1;
+				motorControl(reverse);
+				break;
+			case stop:
+				robotMovingStatus = 0;
+				motorControl(stop);
+				break;
+		}
   }
 }
 
@@ -901,33 +954,190 @@ void play_music_thread(void *argument) {
   }
 }
 
+void autonomous_mode_thread(void *argument) {
+	for(;;) {
+		osSemaphoreAcquire(autonomousModeSem, osWaitForever);
+
+		// Move forward until object detected
+		robotMovingStatus = 1;
+		motorControl(forward);
+		osDelay(1000);
+
+		// Start detecting for object
+		ultrasonicFlag = 1;
+		osSemaphoreAcquire(autonomousStopSem, osWaitForever);
+		
+		// Object detected, stop
+		robotMovingStatus = 0;
+		motorControl(stop);
+		
+		// Reverse
+		robotMovingStatus = 1;
+		motorControl(reverse);
+		osDelay(400);
+		motorControl(stop);
+		osDelay(300);
+		
+		// 90 degree turn left
+		robotMovingStatus = 1;
+		motorControl(ninetyLeft);
+		osDelay(400);
+		robotMovingStatus = 0;
+		motorControl(stop);
+		osDelay(300);
+
+		// Move forward
+		robotMovingStatus = 1;
+		motorControl(forward);
+		osDelay(500);
+		robotMovingStatus = 0;
+		motorControl(stop);
+		osDelay(300);
+		
+		// 90 degree turn right
+		robotMovingStatus = 1;
+		motorControl(ninetyRight);
+		osDelay(400);
+		robotMovingStatus = 0;
+		motorControl(stop);
+		osDelay(300);
+
+		// Move forward
+		robotMovingStatus = 1;
+		motorControl(forward);
+		osDelay(500);
+		robotMovingStatus = 0;
+		motorControl(stop);
+		osDelay(300);
+		
+		// 90 degree turn right
+		robotMovingStatus = 1;
+		motorControl(ninetyRight);
+		osDelay(400);
+		robotMovingStatus = 0;
+		motorControl(stop);
+		osDelay(300);
+
+		// Move forward
+		robotMovingStatus = 1;
+		motorControl(forward);
+		osDelay(500);
+		robotMovingStatus = 0;
+		motorControl(stop);
+		osDelay(300);
+		
+		// 90 degree turn right
+		robotMovingStatus = 1;
+		motorControl(ninetyRight);
+		osDelay(400);
+		robotMovingStatus = 0;
+		motorControl(stop);
+		osDelay(300);
+
+		// Move forward
+		robotMovingStatus = 1;
+		motorControl(forward);
+		osDelay(500);
+		robotMovingStatus = 0;
+		motorControl(stop);
+		osDelay(300);
+		
+		// 90 degree turn right
+		robotMovingStatus = 1;
+		motorControl(ninetyRight);
+		osDelay(400);
+		robotMovingStatus = 0;
+		motorControl(stop);
+		osDelay(300);
+
+		// Move forward
+		robotMovingStatus = 1;
+		motorControl(forward);
+		osDelay(500);
+		robotMovingStatus = 0;
+		motorControl(stop);
+		osDelay(300);
+		
+		// 90 degree turn left
+		robotMovingStatus = 1;
+		motorControl(ninetyLeft);
+		osDelay(400);
+		robotMovingStatus = 0;
+		motorControl(stop); 
+		osDelay(300);
+		
+		// Move forward until another object detected at the end
+		robotMovingStatus = 1;
+		motorControl(forward);
+		osDelay(1000);
+		
+		// Start detecting for object
+		ultrasonicFlag = 1;
+		osSemaphoreAcquire(autonomousStopSem, osWaitForever);
+		
+		// Object detected, stop
+		robotMovingStatus = 0;
+		motorControl(stop);
+		
+		robotMovingStatus = 1;
+		motorControl(reverse);
+		osDelay(200);
+		robotMovingStatus = 0;
+		motorControl(stop);
+		osDelay(100);
+	}
+}
+
+void ultrasonic_thread(void *argument) {
+	for(;;) {
+		// Disable LTPM counter
+		TPM2_SC &= ~TPM_SC_CMOD_MASK;
+		
+		// TPM2_CH0 (Trigger) --> Output compare mode, clear on match
+		TPM2_C0SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK)); 
+		TPM2_C0SC |= (TPM_CnSC_ELSB_MASK | TPM_CnSC_MSA_MASK);
+		
+		// TPM2_CH1 (Echo) --> Input capture on rising edge
+		TPM2_C1SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) | (TPM_CnSC_MSA_MASK));
+		TPM2_C1SC |= TPM_CnSC_ELSA_MASK;
+		
+		TPM2_CNT = 0;
+		
+		ultrasonicStart = 1;
+		ultrasonicValue = 0;
+		
+		NVIC_ClearPendingIRQ(TPM2_IRQn);
+		NVIC_EnableIRQ(TPM2_IRQn);
+		TPM2_SC |= TPM_SC_CMOD(1);
+		
+		osDelay(50);
+	}
+}
+
 int main(void) {
 	// System Initialization
 	SystemCoreClockUpdate();
 	initUART2(BAUD_RATE);
-	initGPIO();
-	initLED();
+	initMotorPins();
+	initLEDPins();
 	initMusicPin();
+	initUltrasonic();
 	
 	osKernelInitialize();  // Initialize CMSIS-RTOS
-	forwardId = osThreadNew(forward_thread, NULL, NULL);
-	leftId = osThreadNew(left_thread, NULL, NULL);
-	rightId = osThreadNew(right_thread, NULL, NULL);
-	reverseId = osThreadNew(reverse_thread, NULL, NULL);
-	stopId = osThreadNew(stop_thread, NULL, NULL);
+	
+	autonomousModeSem = osSemaphoreNew(1, 0, NULL);
+	autonomousStopSem = osSemaphoreNew(1, 0, NULL);
+	manualModeSem = osSemaphoreNew(1, 0, NULL);
+	
+	motorId = osThreadNew(motor_thread, NULL, NULL);
 	controlId = osThreadNew(control_thread, NULL, NULL);
 	greenLedId = osThreadNew(green_led_thread, NULL, NULL);
 	redLedId = osThreadNew(red_led_thread, NULL, NULL);
 	playMusicId = osThreadNew(play_music_thread, NULL, NULL);
+	autonomousModeId = osThreadNew(autonomous_mode_thread, NULL, NULL);
+	ultrasonicId = osThreadNew(ultrasonic_thread, NULL, &highPriority);
 	
-	forwardMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
-	leftMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
-	rightMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
-	reverseMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
-	stopMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
-	greenLedMsg = osMessageQueueNew(MSG_COUNT, sizeof(uint8_t), NULL);
-	redLedMsg = osMessageQueueNew(MSG_COUNT, sizeof(uint8_t), NULL);
-	playMusicMsg = osMessageQueueNew(MSG_COUNT, sizeof(uint8_t), NULL);
+	motorMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
 	
 	osKernelStart();  // Start thread execution
 	for (;;) {}
