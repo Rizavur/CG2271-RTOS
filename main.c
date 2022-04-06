@@ -140,9 +140,7 @@ enum commands {
 	stop = 5,
 	playMusic = 6,
 	stopMusic = 7,
-	autonomousMode = 8,
-	ninetyLeft = 9,
-	ninetyRight = 10
+	autonomousMode = 8
 };
 
 dataPacket receivedData;
@@ -300,11 +298,11 @@ void initUltrasonic() {
 	TPM2_SC &= ~(TPM_SC_CMOD_MASK | TPM_SC_PS_MASK | TPM_SC_CPWMS_MASK);
 	TPM2_SC |= TPM_SC_PS(5);
 	
-	// Set MOD value for TPM2 
-	TPM2_MOD = 10000;
-	
 	// Enable interrupt for TPM2_CH1 (Echo Pin)
 	TPM2_C1SC |= TPM_CnSC_CHIE_MASK;
+	
+	// Set MOD value for TPM2 
+	TPM2_MOD = 10000;
 	
 	// After prescaler, 48Mhz --> 1.5Mhz. Need pulse every 10 micro sec --> frequency = 100Khz.
 	// CnV value needed = 1.5Mhz/100Khz = 15. (For Trigger pin)
@@ -384,7 +382,7 @@ void TPM2_IRQHandler(void) {
 	} else {
 		ultrasonicValue = TPM2_C1V;
 		// If ultrasonic required and object is detected within range
-		if (ultrasonicFlag && ultrasonicValue <= 3800 && ultrasonicValue >= 600) {
+		if (ultrasonicFlag && ultrasonicValue <= 4200 && ultrasonicValue >= 600) {
 				osSemaphoreRelease(autonomousStopSem);
 				ultrasonicFlag = 0;
 		}
@@ -471,6 +469,50 @@ void redLedControl(void) {
 	}
 }
 
+void autonomousMotorControl(int cmd) {
+	int leftFrequency;
+	int rightFrequency;
+	switch(cmd) {
+		case forward:
+			leftFrequency = 10;
+			rightFrequency = 10;
+			TPM0_C0V = (375000 / leftFrequency) / 3;
+			TPM0_C2V = (375000 / rightFrequency) / 3;
+			TPM0_C1V = 0;
+			TPM0_C3V = 0;
+			break;
+		case left:
+			leftFrequency = 5;
+			rightFrequency = 5;
+			TPM0_C0V = 0;
+			TPM0_C2V = (375000 / rightFrequency) / 5;
+			TPM0_C1V = (375000 / leftFrequency) / 5;
+			TPM0_C3V = 0;
+		case right:
+			leftFrequency = 5;
+			rightFrequency = 5;
+			TPM0_C0V = (375000 / leftFrequency) / 5;
+			TPM0_C2V = 0;
+			TPM0_C1V = 0;
+			TPM0_C3V = (375000 / rightFrequency) / 5;
+			break;
+		case reverse:
+			leftFrequency = 8;
+			rightFrequency = 8;
+			TPM0_C0V = 0;
+			TPM0_C2V = 0;
+			TPM0_C1V = (375000 / leftFrequency) / 3;
+			TPM0_C3V = (375000 / rightFrequency) / 3;
+			break;
+		case stop:
+			TPM0_C0V = 0;
+			TPM0_C2V = 0;
+			TPM0_C1V = 0;
+			TPM0_C3V = 0;
+			break;
+	}
+}
+
 void motorControl (int cmd) {
 	int leftFrequency;
 	int rightFrequency;
@@ -478,24 +520,24 @@ void motorControl (int cmd) {
 		case forward:
 			leftFrequency = 5;
 			rightFrequency = 5;
-			TPM0_C0V = (375000 / leftFrequency) / 2;
-			TPM0_C2V = (375000 / rightFrequency) / 2;
+			TPM0_C0V = (375000 / leftFrequency) / 3;
+			TPM0_C2V = (375000 / rightFrequency) / 3;
 			TPM0_C1V = 0;
 			TPM0_C3V = 0;
 			break;
 		case left:
 			leftFrequency = 20;
 			rightFrequency = 5;
-			TPM0_C0V = (375000 / leftFrequency) / 2;
-			TPM0_C2V = (375000 / rightFrequency) / 2;
+			TPM0_C0V = (375000 / leftFrequency) / 3;
+			TPM0_C2V = (375000 / rightFrequency) / 3;
 			TPM0_C1V = 0;
 			TPM0_C3V = 0;
 			break;
 		case right:		
 			leftFrequency = 5;
 			rightFrequency = 20;
-			TPM0_C0V = (375000 / leftFrequency) / 2;
-			TPM0_C2V = (375000 / rightFrequency) / 2;
+			TPM0_C0V = (375000 / leftFrequency) / 3;
+			TPM0_C2V = (375000 / rightFrequency) / 3;
 			TPM0_C1V = 0;
 			TPM0_C3V = 0;
 			break;
@@ -504,8 +546,8 @@ void motorControl (int cmd) {
 			rightFrequency = 5;
 			TPM0_C0V = 0;
 			TPM0_C2V = 0;
-			TPM0_C1V = (375000 / leftFrequency) / 2;
-			TPM0_C3V = (375000 / rightFrequency) / 2;
+			TPM0_C1V = (375000 / leftFrequency) / 3;
+			TPM0_C3V = (375000 / rightFrequency) / 3;
 			break;
 		case stop:
 			TPM0_C0V = 0;
@@ -513,20 +555,7 @@ void motorControl (int cmd) {
 			TPM0_C1V = 0;
 			TPM0_C3V = 0;
 			break;
-		case ninetyRight:
-			leftFrequency = 5;
-			rightFrequency = 5;
-			TPM0_C0V = (375000 / leftFrequency) / 2;
-			TPM0_C2V = 0;
-			TPM0_C1V = 0;
-			TPM0_C3V = (375000 / rightFrequency) / 2;
-		case ninetyLeft:
-			leftFrequency = 5;
-			rightFrequency = 5;
-			TPM0_C0V = 0;
-			TPM0_C2V = (375000 / rightFrequency) / 2;
-			TPM0_C1V = (375000 / leftFrequency) / 2;
-			TPM0_C3V = 0;
+
 	}
 }
 
@@ -960,8 +989,8 @@ void autonomous_mode_thread(void *argument) {
 
 		// Move forward until object detected
 		robotMovingStatus = 1;
-		motorControl(forward);
-		osDelay(1000);
+		autonomousMotorControl(forward);
+		osDelay(1200);
 
 		// Start detecting for object
 		ultrasonicFlag = 1;
@@ -969,107 +998,109 @@ void autonomous_mode_thread(void *argument) {
 		
 		// Object detected, stop
 		robotMovingStatus = 0;
-		motorControl(stop);
+		autonomousMotorControl(stop);
+		osDelay(300);
 		
 		// Reverse
 		robotMovingStatus = 1;
-		motorControl(reverse);
-		osDelay(400);
-		motorControl(stop);
-		osDelay(300);
+		autonomousMotorControl(reverse);
+		osDelay(325);
+		robotMovingStatus = 0;
+		autonomousMotorControl(stop);
+		osDelay(1000);
 		
 		// 90 degree turn left
 		robotMovingStatus = 1;
-		motorControl(ninetyLeft);
+		autonomousMotorControl(left);
+		osDelay(330);
+		robotMovingStatus = 0;
+		autonomousMotorControl(stop);
+		osDelay(1000);
+		
+		// Move forward
+		robotMovingStatus = 1;
+		autonomousMotorControl(forward);
 		osDelay(400);
 		robotMovingStatus = 0;
-		motorControl(stop);
-		osDelay(300);
+		autonomousMotorControl(stop);
+		osDelay(1000);
+
+		// 90 degree turn right
+		robotMovingStatus = 1;
+		autonomousMotorControl(right);
+		osDelay(400);
+		robotMovingStatus = 0;
+		autonomousMotorControl(stop);
+		osDelay(1000);
 
 		// Move forward
 		robotMovingStatus = 1;
-		motorControl(forward);
-		osDelay(500);
+		autonomousMotorControl(forward);
+		osDelay(1000);
 		robotMovingStatus = 0;
-		motorControl(stop);
-		osDelay(300);
+		autonomousMotorControl(stop);
+		osDelay(1000);
 		
 		// 90 degree turn right
 		robotMovingStatus = 1;
-		motorControl(ninetyRight);
-		osDelay(400);
+		autonomousMotorControl(right);
+		osDelay(380);
 		robotMovingStatus = 0;
-		motorControl(stop);
-		osDelay(300);
+		autonomousMotorControl(stop);
+		osDelay(1000);
 
 		// Move forward
 		robotMovingStatus = 1;
-		motorControl(forward);
-		osDelay(500);
+		autonomousMotorControl(forward);
+		osDelay(800);
 		robotMovingStatus = 0;
-		motorControl(stop);
-		osDelay(300);
+		autonomousMotorControl(stop);
+		osDelay(1000);
 		
 		// 90 degree turn right
 		robotMovingStatus = 1;
-		motorControl(ninetyRight);
-		osDelay(400);
+		autonomousMotorControl(right);
+		osDelay(380);
 		robotMovingStatus = 0;
-		motorControl(stop);
-		osDelay(300);
+		autonomousMotorControl(stop);
+		osDelay(1000);
 
 		// Move forward
 		robotMovingStatus = 1;
-		motorControl(forward);
-		osDelay(500);
+		autonomousMotorControl(forward);
+		osDelay(1100);
 		robotMovingStatus = 0;
-		motorControl(stop);
-		osDelay(300);
+		autonomousMotorControl(stop);
+		osDelay(1000);
 		
 		// 90 degree turn right
 		robotMovingStatus = 1;
-		motorControl(ninetyRight);
-		osDelay(400);
+		autonomousMotorControl(right);
+		osDelay(380);
 		robotMovingStatus = 0;
-		motorControl(stop);
-		osDelay(300);
+		autonomousMotorControl(stop);
+		osDelay(1000);
 
 		// Move forward
 		robotMovingStatus = 1;
-		motorControl(forward);
-		osDelay(500);
-		robotMovingStatus = 0;
-		motorControl(stop);
-		osDelay(300);
-		
-		// 90 degree turn right
-		robotMovingStatus = 1;
-		motorControl(ninetyRight);
+		autonomousMotorControl(forward);
 		osDelay(400);
 		robotMovingStatus = 0;
-		motorControl(stop);
-		osDelay(300);
-
-		// Move forward
-		robotMovingStatus = 1;
-		motorControl(forward);
-		osDelay(500);
-		robotMovingStatus = 0;
-		motorControl(stop);
-		osDelay(300);
+		autonomousMotorControl(stop);
+		osDelay(1000);
 		
 		// 90 degree turn left
 		robotMovingStatus = 1;
-		motorControl(ninetyLeft);
-		osDelay(400);
+		autonomousMotorControl(left);
+		osDelay(355);
 		robotMovingStatus = 0;
-		motorControl(stop); 
-		osDelay(300);
+		autonomousMotorControl(stop); 
+		osDelay(1000);
 		
 		// Move forward until another object detected at the end
 		robotMovingStatus = 1;
-		motorControl(forward);
-		osDelay(1000);
+		autonomousMotorControl(forward);
+		osDelay(1200);
 		
 		// Start detecting for object
 		ultrasonicFlag = 1;
@@ -1077,14 +1108,15 @@ void autonomous_mode_thread(void *argument) {
 		
 		// Object detected, stop
 		robotMovingStatus = 0;
-		motorControl(stop);
+		autonomousMotorControl(stop);
 		
 		robotMovingStatus = 1;
-		motorControl(reverse);
+		autonomousMotorControl(reverse);
 		osDelay(200);
 		robotMovingStatus = 0;
-		motorControl(stop);
-		osDelay(100);
+		autonomousMotorControl(stop);
+		playFinalMusic = 1;
+		osDelay(350);
 	}
 }
 
