@@ -535,7 +535,7 @@ void motorControl (int cmd) {
 			break;
 		case right:		
 			leftFrequency = 5;
-			rightFrequency = 20;
+			rightFrequency = 30;
 			TPM0_C0V = (375000 / leftFrequency) / 3;
 			TPM0_C2V = (375000 / rightFrequency) / 3;
 			TPM0_C1V = 0;
