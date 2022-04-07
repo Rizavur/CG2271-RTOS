@@ -1015,23 +1015,23 @@ void autonomous_mode_thread(void *argument) {
 		osDelay(330);
 		robotMovingStatus = 0;
 		autonomousMotorControl(stop);
-		osDelay(1000);
+		osDelay(1100);
 		
 		// Move forward
 		robotMovingStatus = 1;
 		autonomousMotorControl(forward);
-		osDelay(400);
+		osDelay(500);
 		robotMovingStatus = 0;
 		autonomousMotorControl(stop);
-		osDelay(1000);
+		osDelay(1100);
 
-		// 90 degree turn right
+		// 1st 90 degree turn right
 		robotMovingStatus = 1;
 		autonomousMotorControl(right);
 		osDelay(400);
 		robotMovingStatus = 0;
 		autonomousMotorControl(stop);
-		osDelay(1000);
+		osDelay(1100);
 
 		// Move forward
 		robotMovingStatus = 1;
@@ -1039,31 +1039,15 @@ void autonomous_mode_thread(void *argument) {
 		osDelay(1000);
 		robotMovingStatus = 0;
 		autonomousMotorControl(stop);
-		osDelay(1000);
+		osDelay(1100);
 		
-		// 90 degree turn right
+		// 2nd 90 degree turn right
 		robotMovingStatus = 1;
 		autonomousMotorControl(right);
-		osDelay(380);
+		osDelay(400);
 		robotMovingStatus = 0;
 		autonomousMotorControl(stop);
-		osDelay(1000);
-
-		// Move forward
-		robotMovingStatus = 1;
-		autonomousMotorControl(forward);
-		osDelay(800);
-		robotMovingStatus = 0;
-		autonomousMotorControl(stop);
-		osDelay(1000);
-		
-		// 90 degree turn right
-		robotMovingStatus = 1;
-		autonomousMotorControl(right);
-		osDelay(380);
-		robotMovingStatus = 0;
-		autonomousMotorControl(stop);
-		osDelay(1000);
+		osDelay(1100);
 
 		// Move forward
 		robotMovingStatus = 1;
@@ -1071,15 +1055,31 @@ void autonomous_mode_thread(void *argument) {
 		osDelay(1100);
 		robotMovingStatus = 0;
 		autonomousMotorControl(stop);
-		osDelay(1000);
+		osDelay(1100);
 		
-		// 90 degree turn right
+		// 3rd 90 degree turn right
 		robotMovingStatus = 1;
 		autonomousMotorControl(right);
-		osDelay(380);
+		osDelay(350);
 		robotMovingStatus = 0;
 		autonomousMotorControl(stop);
-		osDelay(1000);
+		osDelay(1100);
+
+		// Move forward
+		robotMovingStatus = 1;
+		autonomousMotorControl(forward);
+		osDelay(1300);
+		robotMovingStatus = 0;
+		autonomousMotorControl(stop);
+		osDelay(1100);
+		
+		// 4th 90 degree turn right
+		robotMovingStatus = 1;
+		autonomousMotorControl(right);
+		osDelay(350);
+		robotMovingStatus = 0;
+		autonomousMotorControl(stop);
+		osDelay(1100);
 
 		// Move forward
 		robotMovingStatus = 1;
@@ -1087,20 +1087,20 @@ void autonomous_mode_thread(void *argument) {
 		osDelay(400);
 		robotMovingStatus = 0;
 		autonomousMotorControl(stop);
-		osDelay(1000);
+		osDelay(1100);
 		
 		// 90 degree turn left
 		robotMovingStatus = 1;
 		autonomousMotorControl(left);
-		osDelay(355);
+		osDelay(330);
 		robotMovingStatus = 0;
 		autonomousMotorControl(stop); 
-		osDelay(1000);
+		osDelay(1100);
 		
 		// Move forward until another object detected at the end
 		robotMovingStatus = 1;
 		autonomousMotorControl(forward);
-		osDelay(1200);
+		osDelay(1300);
 		
 		// Start detecting for object
 		ultrasonicFlag = 1;
