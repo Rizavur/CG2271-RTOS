@@ -29,9 +29,9 @@ const long timeoutTime = 2000;
 int wait30 = 30000; // time to reconnect when connection is lost.
 
 // This is your Static IP
-IPAddress local_IP(192, 168, 27, 20);
+IPAddress local_IP(192, 168, 226, 20);
 // Gateway IP address
-IPAddress gateway(192, 168, 27, 203);
+IPAddress gateway(192, 168, 226, 27);
 IPAddress subnet(255, 255, 0, 0);
 IPAddress primaryDNS(8, 8, 8, 8);
 IPAddress secondaryDNS(8, 8, 4, 4); 
@@ -147,11 +147,23 @@ void loop() {
     digitalWrite(output26, HIGH);
     Serial2.write(8);
   }
-  if(req.indexOf("autoOff") != -1)
+  if(req.indexOf("smallLeft") != -1)
   {
-    response = "Autonomous Off";
+    response = "Small Left";
     digitalWrite(output26, HIGH);
     Serial2.write(9);
+  }
+  if(req.indexOf("smallRight") != -1)
+  {
+    response = "Small Right";
+    digitalWrite(output26, HIGH);
+    Serial2.write(10);
+  }
+    if(req.indexOf("smallForward") != -1)
+  {
+    response = "Small Forward";
+    digitalWrite(output26, HIGH);
+    Serial2.write(11);
   }
   
   client.println("HTTP/1.1 200 OK");
