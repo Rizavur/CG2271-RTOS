@@ -123,9 +123,9 @@
 #define NOTE_DS8 4978
 #define REST      0
 
-osThreadId_t motorId, controlId, greenLedId, redLedId, playMusicId, autonomousModeId, ultrasonicId;
+osThreadId_t motorId, controlId, greenLedId, redLedId, playMusicId, autonomousModeId, ultrasonicId, manualStopId;
 osMessageQueueId_t motorMsg;
-osSemaphoreId_t autonomousModeSem, autonomousStopSem, manualModeSem;
+osSemaphoreId_t autonomousModeSem, autonomousStopSem, manualModeSem, manualStopSem;
 osThreadAttr_t highPriority = {.priority = osPriorityHigh};
 
 typedef struct {
@@ -140,7 +140,10 @@ enum commands {
 	stop = 5,
 	playMusic = 6,
 	stopMusic = 7,
-	autonomousMode = 8
+	autonomousMode = 8,
+	smallLeft = 9,
+	smallRight = 10,
+	smallForward = 11
 };
 
 dataPacket receivedData;
@@ -357,6 +360,8 @@ void UART2_IRQHandler(void) {
 		receivedData = received;
 		if (received.cmd == autonomousMode) {
 			osSemaphoreRelease(autonomousModeSem);
+		} else if (received.cmd == stop) {
+			osSemaphoreRelease(manualStopSem);
 		} else {
 			osSemaphoreRelease(manualModeSem);
 		}
@@ -535,7 +540,7 @@ void motorControl (int cmd) {
 			break;
 		case right:		
 			leftFrequency = 5;
-			rightFrequency = 30;
+			rightFrequency = 20;
 			TPM0_C0V = (375000 / leftFrequency) / 3;
 			TPM0_C2V = (375000 / rightFrequency) / 3;
 			TPM0_C1V = 0;
@@ -548,6 +553,30 @@ void motorControl (int cmd) {
 			TPM0_C2V = 0;
 			TPM0_C1V = (375000 / leftFrequency) / 3;
 			TPM0_C3V = (375000 / rightFrequency) / 3;
+			break;
+		case smallLeft:
+			leftFrequency = 0;
+			rightFrequency = 15;
+			TPM0_C0V = (375000 / leftFrequency) / 3;
+			TPM0_C2V = (375000 / rightFrequency) / 3;
+			TPM0_C1V = 0;
+			TPM0_C3V = 0;
+			break;
+		case smallRight:		
+			leftFrequency = 15;
+			rightFrequency = 0;
+			TPM0_C0V = (375000 / leftFrequency) / 3;
+			TPM0_C2V = (375000 / rightFrequency) / 3;
+			TPM0_C1V = 0;
+			TPM0_C3V = 0;
+			break;
+		case smallForward:		
+			leftFrequency = 15;
+			rightFrequency = 15;
+			TPM0_C0V = (375000 / leftFrequency) / 3;
+			TPM0_C2V = (375000 / rightFrequency) / 3;
+			TPM0_C1V = 0;
+			TPM0_C3V = 0;
 			break;
 		case stop:
 			TPM0_C0V = 0;
@@ -920,6 +949,9 @@ void control_thread(void *argument) {
 			case left:
 			case right:
 			case reverse:
+			case smallLeft:
+			case smallRight:
+			case smallForward:
 			case stop:
 				osMessageQueuePut(motorMsg, &receivedData.cmd, NULL, 0);
 				break;
@@ -957,6 +989,15 @@ void motor_thread(void *argument) {
 				robotMovingStatus = 1;
 				motorControl(reverse);
 				break;
+			case smallLeft:
+				robotMovingStatus = 1;
+				motorControl(smallLeft);
+			case smallRight:
+				robotMovingStatus = 1;
+				motorControl(smallRight);
+			case smallForward:
+				robotMovingStatus = 1;
+				motorControl(smallForward);
 			case stop:
 				robotMovingStatus = 0;
 				motorControl(stop);
@@ -1146,6 +1187,14 @@ void ultrasonic_thread(void *argument) {
 	}
 }
 
+void manual_stop_thread(void *argument) {
+	for(;;) {
+		osSemaphoreAcquire(manualStopSem, osWaitForever);
+		robotMovingStatus = 0;
+		motorControl(stop);
+	}
+}
+
 int main(void) {
 	// System Initialization
 	SystemCoreClockUpdate();
@@ -1160,6 +1209,7 @@ int main(void) {
 	autonomousModeSem = osSemaphoreNew(1, 0, NULL);
 	autonomousStopSem = osSemaphoreNew(1, 0, NULL);
 	manualModeSem = osSemaphoreNew(1, 0, NULL);
+	manualStopSem = osSemaphoreNew(1, 0, NULL);
 	
 	motorId = osThreadNew(motor_thread, NULL, NULL);
 	controlId = osThreadNew(control_thread, NULL, NULL);
@@ -1168,6 +1218,7 @@ int main(void) {
 	playMusicId = osThreadNew(play_music_thread, NULL, NULL);
 	autonomousModeId = osThreadNew(autonomous_mode_thread, NULL, NULL);
 	ultrasonicId = osThreadNew(ultrasonic_thread, NULL, &highPriority);
+	manualStopId = osThreadNew(manual_stop_thread, NULL, NULL);
 	
 	motorMsg = osMessageQueueNew(MSG_COUNT, sizeof(dataPacket), NULL);
 	
